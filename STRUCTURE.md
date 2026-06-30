@@ -6,7 +6,7 @@ iOS + watchOS app. One Xcode project, three targets (iOS app, Watch app, Shared)
 
 | Folder            | Target        | Owner        |
 |-------------------|---------------|--------------|
-| `Sanscore/`       | iOS app       | Coder A (me) |
+| `SanscoreiOS/`    | iOS app       | Coder A (me) |
 | `Shared/`         | both          | Coder A (me) |
 | `SanscoreWatch/`  | watchOS app   | Coder B + C  |
 | `Design/`         | assets        | Designer     |
@@ -18,7 +18,7 @@ iOS + watchOS app. One Xcode project, three targets (iOS app, Watch app, Shared)
 ## Folder map
 
 ```
-Sanscore/        iOS app        App/ Views/ ViewModels/ Resources/
+SanscoreiOS/     iOS app        App/ Views/ ViewModels/ Resources/
 SanscoreWatch/   watchOS app    App/ Views/ ViewModels/ Resources/
 Shared/          both targets   Models/ Connectivity/ Services/ Extensions/
 Design/          designer       exports/
