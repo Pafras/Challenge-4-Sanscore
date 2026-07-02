@@ -20,8 +20,16 @@ struct AnswerStructure {
     @Guide(description: "0 = clear and specific, 1 = vague or rambling")
     var vagueness: Double
 
+    @Guide(description: "0 = totally confident, 1 = totally timid, shy, or unsure")
+    var timidity: Double
+    
+    @Guide(description: "0 = answers make sense, 1 = inconsistent answers, many self-correction")
+    var incoherence: Double
+    
     @Guide(description: "one short, funny, playful verdict line for a party game")
     var verdict: String
+    
+    
 }
 
 @available(iOS 26.0, *)
@@ -31,7 +39,7 @@ struct StructureAnalyzer: StructureAnalyzing {
         // TODO(agung): tune this persona + prompt. Playtest the wording.
         let session = LanguageModelSession(instructions: """
             You are a playful party-game lie detector. You judge only the STRUCTURE
-            of an answer (is it evasive, vague, dodgy?), never whether it is factually
+            of an answer (is it evasive, vague, confident, coherent), never whether it is factually
             true. Be fun, not mean. Stay consistent.
             """)
 
@@ -46,7 +54,7 @@ struct StructureAnalyzer: StructureAnalyzing {
 
         // TODO(agung): decide how to combine the fields into one 0-1 score.
         // First guess: weight evasiveness more than vagueness.
-        let score = min(max(0.6 * s.evasiveness + 0.4 * s.vagueness, 0), 1)
+        let score = min(max(0.25 * s.evasiveness + 0.25 * s.vagueness + 0.25 * s.timidity + 0.25 * s.incoherence, 0), 1)
         return StructureResult(score: score, verdict: s.verdict)
     }
 }
