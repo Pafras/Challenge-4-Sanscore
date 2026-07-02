@@ -65,10 +65,13 @@ Sanscore/Sanscore/
   Shared/Services/StructureAnalyzer.swift  LLM, iOS 26+, #if canImport(FoundationModels)
   Shared/Services/RealSpeechCapture.swift  SFSpeechRecognizer, iOS
   Shared/Services/RealHeartRate.swift      camera PPG, iOS
+  Shared/Extensions/UIImage+Thumbnail.swift  shrink camera photo -> tiny JPEG avatar
   Shared/Connectivity/RoomService.swift    MultipeerConnectivity, iOS
   SanscoreiOS/ViewModels/GameViewModel.swift  the bridge; UI reads this
-  SanscoreiOS/Views/GameFlowView.swift     the real UI: all screens, switches on vm.state
+  SanscoreiOS/Views/GameFlowView.swift     the real UI: all screens + lobby bubbles
+  SanscoreiOS/Views/CameraPicker.swift     UIImagePickerController wrapper (lobby selfie)
   SanscoreiOS/App/SanscoreApp.swift        @main -> GameFlowView()
+  Info.plist                               NSBonjourServices (rooms) + usage strings
 Tests/SusEngineXCTests.swift            add to a Unit Test target, Cmd+U
 Tests/SusEngineTests.swift              command-line version of the same asserts
 ```
@@ -108,20 +111,38 @@ Real face-to-face multiplayer over MultipeerConnectivity. Tested on 2 Simulators
 
 - **`RoomMessage`** enum (`Models.swift`) = one envelope for everything that
   crosses the network: `.turn(asker,answerer)`, `.question(String)`,
-  `.result(RoundResult)`. `RoomService.send(_:)` / `onMessage` is the single path.
+  `.result(RoundResult)`, `.profile(name,Data)` (avatar), `.rename(id,display)`
+  (chosen name). `RoomService.send(_:)` / `onMessage` is the single path.
 - **Host** = whoever taps "Create room" (`isHost = true`). Host generates a
-  **4-digit room code**, shown in the lobby.
+  **4-digit room code**, shown in the lobby. `NSBonjourServices` is set in
+  `Info.plist` (`_sanscore._tcp/_udp`) — required for discovery on real devices.
 - **Join** = custom nearby list (`RoomService.foundRooms` via `MCNearbyServiceBrowser`)
   → tap a room → **enter the code** → `join(host, code:)` sends it as the invite
-  context → host's advertiser accepts only on match. (Replaced
-  `MCBrowserViewController`; `RoomBrowserView.swift` is deleted.)
+  context → host's advertiser accepts only on match. Host's chosen name rides in
+  the advertiser's discoveryInfo (`roomNames`), so the list shows it, not "iPhone".
+  `startBrowsing` restarts the browser so a re-browse re-finds existing rooms.
+  (Replaced `MCBrowserViewController`; `RoomBrowserView.swift` deleted.)
+- **Identity vs display name**: the `MCPeerID` name (device name) is the stable
+  id used as the key everywhere (turns, avatars, `currentAsker/Answerer`). The
+  shown label is a separate broadcast (`displayNames`, `label(for:)`), so a player
+  can rename ANY time — even mid-lobby — via `setDisplayName`, no reconnect.
 - **Turns**: host `startSession()` picks asker+answerer round-robin from
   `room.players` (sorted names), broadcasts `.turn`, applies locally (host plays
   too). Every device's `applyTurn` matches its own name → asker/answerer/spectator.
 - **Question relay**: asker release → `send(.question)` → answerer's `setQuestion`.
 - **Result**: answerer scores → `send(.result)` → asker + spectators show it.
 - **"Start"/"Next round"** = `vm.start()`/`nextRound()`: host → `startSession`;
-  solo (no peers) → `startRound()` single-phone loop; non-host clients wait.
+  solo (no peers) → `startRound()` single-phone loop. Non-host clients wait — the
+  result screen shows "waiting for host" (only host/solo can advance, `canAdvance`).
+
+### Lobby (waiting room)
+- Players shown as drifting **avatar bubbles** (`PlayerBubblesView`): photo or
+  initials, your own ringed with a camera badge. Tap your bubble → `EditProfileView`
+  (take/retake photo via `CameraPicker`, edit name).
+- Avatars = tiny JPEG thumbnails (`UIImage+Thumbnail`) broadcast via `.profile`.
+- **Leave** = top-left chevron → confirmation dialog (host: "closes room";
+  player: "leave"). Leaver sees "You left the room" on start; others get an
+  "X left" toast.
 
 ### Disconnect handling
 - **Host leaves** → room closes → everyone to start screen (`endRoom`), alert shown.
@@ -134,9 +155,12 @@ Real face-to-face multiplayer over MultipeerConnectivity. Tested on 2 Simulators
 ## Current state
 
 - Logic base tested (`SusEngine`), **real UI** (`GameFlowView`), **multiplayer + room
-  code working**, **calibration** (3-question averaged baseline, shows your BPM).
+  code working** (tested device↔Simulator), **calibration** (3-question averaged
+  baseline, shows your BPM), **lobby profiles** (avatar bubbles + editable names).
 - **Sensors**: speech + camera heart rate = **real** and verified on iPhone 17.
-  Structure (LLM) = still **mock** until Agung's `StructureAnalyzer` is merged.
+  Structure (LLM) = still **mock** until Agung's `StructureAnalyzer` is merged
+  — the ONE remaining swap: `MockStructure()` → `StructureAnalyzer()` in
+  `GameViewModel.init`, then test on an iOS 26 Apple-Intelligence device.
 - **Simulator auto-uses mocks**, device auto-uses real (`#if targetEnvironment(simulator)`
   in `GameViewModel.init`) — so 2-Simulator multiplayer testing runs with no hardware.
 - Mocks have `Task.sleep` delays so loading/calculating screens are visible.
