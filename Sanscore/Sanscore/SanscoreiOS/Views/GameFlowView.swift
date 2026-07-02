@@ -7,6 +7,7 @@
 // OWNER: Pafras (iOS). The app's real screen (replaces the old DevTestView).
 
 import SwiftUI
+import Combine
 
 struct GameFlowView: View {
     @State private var vm = GameViewModel()   // all mocks by default
@@ -21,7 +22,8 @@ struct GameFlowView: View {
             case .roleReveal:
                 RoleRevealView()
             case .asking:
-                AskingView { vm.askerReleased() }
+                AskingView(onPress: { vm.askerPressed() },
+                           onRelease: { vm.askerReleased() })
             case .answering:
                 AnsweringView(onPress: { vm.answererPressed() },
                               onRelease: { vm.answererReleased() })
@@ -96,11 +98,11 @@ private struct RoomLobbyView: View {
                 }
             }
             Spacer()
-            Button("Start") { vm.startSession() }
+            Button("Start") { vm.startRound() }
                 .buttonStyle(.borderedProminent)
             #if DEBUG
             VStack(spacing: 8) {
-                Text("Dev: force role")
+                Text("Dev: force role (multiplayer test)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
@@ -191,12 +193,14 @@ private struct PushToTalkView: View {
 }
 
 private struct AskingView: View {
+    let onPress: () -> Void
     let onRelease: () -> Void
 
     var body: some View {
         PushToTalkView(label: "Ask your question out loud",
                        subtitle: "You're asking",
                        color: .blue,
+                       onPress: onPress,
                        onRelease: onRelease)
     }
 }
@@ -255,17 +259,49 @@ private struct WaitingForResultView: View {
 }
 
 private struct LoadingView: View {
+    // Keep in sync with RealHeartRate.sampleWindow.
+    private let captureSeconds = 8
+
+    @State private var trim: CGFloat = 1        // ring drains 1 -> 0
+    @State private var remaining = 8            // countdown number
+    private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 24) {
             Spacer()
-            ProgressView()
-                .controlSize(.large)
-            Text("Reading heart rate, timing, tone…")
+
+            ZStack {
+                Circle()
+                    .stroke(.red.opacity(0.15), lineWidth: 12)
+                Circle()
+                    .trim(from: 0, to: trim)
+                    .stroke(.red, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                    .rotationEffect(.degrees(-90))   // start at top
+                Text("\(remaining)")
+                    .font(.system(size: 56, weight: .bold, design: .rounded))
+                    .contentTransition(.numericText())
+            }
+            .frame(width: 180, height: 180)
+
+            Text("Keep your finger on the back camera")
+                .font(.title3.bold())
+                .multilineTextAlignment(.center)
+            Text("Cover the rear camera + flash — that's how we read your heartbeat.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
             Spacer()
         }
         .padding()
+        .onAppear {
+            trim = 1
+            remaining = captureSeconds
+            withAnimation(.linear(duration: Double(captureSeconds))) { trim = 0 }
+        }
+        .onReceive(tick) { _ in
+            if remaining > 0 { withAnimation { remaining -= 1 } }
+        }
     }
 }
 

@@ -48,11 +48,12 @@ final class GameViewModel {
 
     // Inject anything conforming to the protocols. Swap mocks -> real ONE at a
     // time, testing on a real device after each (see CLAUDE.md "Sensor swap").
-    // Step 1 DONE: speech is real. Step 2/3 (heart, structure) still mock.
-    // NOTE: RealSpeechCapture needs a real iPhone — it won't transcribe in the
-    // Simulator. Put MockSpeech() back here if you need to demo on Simulator.
+    // Step 1 DONE: speech real. Step 2 DONE: heart real. Step 3: structure/LLM
+    // still mock — swap to StructureAnalyzer() once Agung's tuning is merged.
+    // NOTE: real speech + heart need a real iPhone — they won't work in the
+    // Simulator. Put the Mock* back here if you need to demo on Simulator.
     init(engine: SusEngine = SusEngine(),
-         heart: HeartRateSource = MockHeartRate(),
+         heart: HeartRateSource = RealHeartRate(),
          speech: SpeechCapturing = RealSpeechCapture(),
          structure: StructureAnalyzing = MockStructure()) {
         self.engine = engine
@@ -111,14 +112,43 @@ final class GameViewModel {
 
     // --- Push-to-talk ---
 
-    // Asker held the whole screen while reading the question out loud, then
-    // let go. Now waits for the answerer's phone to score the round and
-    // broadcast a RoundResult back (see receivedResult).
-    // ponytail: the release itself isn't sent to the answerer's phone yet —
-    // there's no turn-order sync (see RoomService.swift). Solo/no-partner
-    // testing will sit on this screen forever; test the answerer role instead.
+    // Asker pressed down — start capturing so we can transcribe the question.
+    func askerPressed() {
+        try? speech.startListening()
+    }
+
+    // Asker let go. Transcribe the spoken question (option A: the LLM needs the
+    // question text to judge how evasive the ANSWER is relative to it).
+    //
+    // Solo (no peers connected): the same device now becomes the answerer, so
+    // one phone can play a full ask -> answer -> result round. This is also the
+    // single-question path the LLM needs to be testable end-to-end.
+    //
+    // Multiplayer (peers connected): broadcast the question text to the room so
+    // the answerer's phone can feed it to its LLM, then wait for the result.
+    // ponytail: the multiplayer broadcast of the question isn't wired yet —
+    // needs turn-order sync (see RoomService.swift). Solo path works today.
     func askerReleased() {
-        state = .waitingForResult
+        Task {
+            let q = await speech.stopAndTranscribe()
+            setQuestion(q.text)
+
+            if room.connectedPeers.isEmpty {
+                // Solo: this phone answers its own question next.
+                myRole = .answerer
+                responseClockStart = Date()
+                state = .answering
+            } else {
+                // Multiplayer: TODO broadcast `q.text` to the answerer's phone.
+                state = .waitingForResult
+            }
+        }
+    }
+
+    // One entry point for the question text, so the solo path (above) and a
+    // future received-over-the-room message both set it the same way.
+    func setQuestion(_ text: String) {
+        currentQuestion = text
     }
 
     // Escape hatch for .waitingForResult and .spectating — neither resolves
@@ -175,8 +205,21 @@ final class GameViewModel {
         room.broadcast(RoundResult(answererName: room.myPeerID.displayName, score: result.score, verdict: result.verdict))
     }
 
-    // "Next round" — roll again without leaving the room.
+    // "Next round" — restart the loop: ask -> answer -> loading -> calculating
+    // -> result -> (next) -> ask... The asker's release solo-flips to answering
+    // (see askerReleased), so this just drops back to the asking screen.
     func nextRound() {
-        startSession()
+        startRound()
+    }
+
+    // TEMP (testing/debugging only): a fixed single-phone loop that skips the
+    // roulette + role assignment so one device can run ask->answer->result
+    // repeatedly. RESTORE for real multiplayer: point "Start"/nextRound back at
+    // startSession() (roulette role reveal) once the sensor + LLM fixes are done.
+    func startRound() {
+        lastResult = nil
+        currentQuestion = ""
+        myRole = .asker
+        state = .asking
     }
 }

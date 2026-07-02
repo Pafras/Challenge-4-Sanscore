@@ -57,6 +57,12 @@ final class RealSpeechCapture: SpeechCapturing {
     func startListening() throws {
         guard let recognizer, recognizer.isAvailable else { throw SpeechError.recognizerUnavailable }
 
+        // Reset per-capture state — this instance is reused (asker question then
+        // answerer answer on the same phone). Without this, a silent recording
+        // returns the PREVIOUS transcript (e.g. the answer == the question).
+        latest = nil
+        startTime = nil
+
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.record, mode: .measurement, options: .duckOthers)
@@ -69,6 +75,10 @@ final class RealSpeechCapture: SpeechCapturing {
         self.request = request
 
         let input = audioEngine.inputNode
+        // Remove any leftover tap first — installTap crashes ("nullptr == Tap")
+        // if a tap from a previous round is still attached to this bus (e.g. the
+        // solo asker -> answerer flip calls startListening twice on one engine).
+        input.removeTap(onBus: 0)
         let format = input.outputFormat(forBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             self?.request?.append(buffer)
