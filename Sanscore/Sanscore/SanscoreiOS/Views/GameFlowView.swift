@@ -15,8 +15,14 @@ struct GameFlowView: View {
     var body: some View {
         VStack {
             switch vm.state {
-            case .idle, .calibrating:
+            case .idle:
                 RoomSetupView(vm: vm)
+            case .calibrating:
+                CalibratingView(prompt: vm.calibrationPrompt,
+                                step: vm.calibrationStep + 1,
+                                total: vm.calibrationPrompts.count,
+                                onPress: { vm.calibrationPressed() },
+                                onRelease: { vm.calibrationReleased() })
             case .roomLobby:
                 RoomLobbyView(vm: vm)
             case .roleReveal:
@@ -62,6 +68,15 @@ private struct RoomSetupView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Spacer()
+            if vm.isCalibrated {
+                Label("Your normal: \(Int(vm.baseline.heartRate)) BPM", systemImage: "heart.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(.red)
+            }
+            Button(vm.isCalibrated ? "Recalibrate" : "Calibrate (set your normal)") {
+                vm.startCalibration()
+            }
+            .buttonStyle(.bordered)
             Button("Create room") { vm.createRoom() }
                 .buttonStyle(.borderedProminent)
             Button("Join room") { showBrowser = true }
@@ -213,6 +228,22 @@ private struct AnsweringView: View {
         PushToTalkView(label: "Say your answer",
                        subtitle: "You're answering",
                        color: .green,
+                       onPress: onPress,
+                       onRelease: onRelease)
+    }
+}
+
+private struct CalibratingView: View {
+    let prompt: String
+    let step: Int
+    let total: Int
+    let onPress: () -> Void
+    let onRelease: () -> Void
+
+    var body: some View {
+        PushToTalkView(label: prompt,
+                       subtitle: "Calibrating \(step) of \(total) — this is your normal",
+                       color: .purple,
                        onPress: onPress,
                        onRelease: onRelease)
     }

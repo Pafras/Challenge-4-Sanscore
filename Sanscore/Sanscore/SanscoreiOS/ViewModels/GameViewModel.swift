@@ -110,6 +110,72 @@ final class GameViewModel {
         }
     }
 
+    // --- Calibration ---
+    // Capture the player's OWN normal (heart rate, speech rate, response time)
+    // by averaging 3 easy answers, so the sus score measures deviation from
+    // THEM, not from hardcoded numbers. Set once before playing; reused rounds.
+    var isCalibrated = false
+
+    let calibrationPrompts = [
+        "Say your name and what you had for breakfast",
+        "Count out loud from one to ten",
+        "Describe what you did yesterday"
+    ]
+    private(set) var calibrationPrompt = ""
+    private(set) var calibrationStep = 0        // 0-based; UI shows +1
+
+    // Captures accumulated across the 3 prompts, averaged at the end.
+    private var calBPM: [Double] = []
+    private var calResp: [Double] = []
+    private var calRate: [Double] = []
+
+    func startCalibration() {
+        calibrationStep = 0
+        calBPM = []; calResp = []; calRate = []
+        calibrationPrompt = calibrationPrompts[0]
+        state = .calibrating
+    }
+
+    // Player pressed to answer the current calibration prompt.
+    func calibrationPressed() {
+        responseClockStart = Date()
+        try? speech.startListening()
+    }
+
+    // Player finished one prompt — capture, then advance or finish + average.
+    func calibrationReleased() {
+        let responseTime = Date().timeIntervalSince(responseClockStart ?? Date())
+        Task {
+            state = .loading   // reuse the "reading heart rate" screen + countdown
+            let speechResult = await speech.stopAndTranscribe()
+            let bpm = await heart.currentBPM()
+
+            calBPM.append(bpm)
+            if responseTime > 0 { calResp.append(responseTime) }
+            if speechResult.speechRate > 0 { calRate.append(speechResult.speechRate) }
+
+            calibrationStep += 1
+            if calibrationStep < calibrationPrompts.count {
+                calibrationPrompt = calibrationPrompts[calibrationStep]
+                state = .calibrating
+            } else {
+                // Average the captures; fall back to the old baseline per-signal
+                // if every capture for that signal was empty.
+                baseline = Baseline(
+                    heartRate: average(calBPM) ?? baseline.heartRate,
+                    responseTime: average(calResp) ?? baseline.responseTime,
+                    speechRate: average(calRate) ?? baseline.speechRate
+                )
+                isCalibrated = true
+                state = .idle
+            }
+        }
+    }
+
+    private func average(_ xs: [Double]) -> Double? {
+        xs.isEmpty ? nil : xs.reduce(0, +) / Double(xs.count)
+    }
+
     // --- Push-to-talk ---
 
     // Asker pressed down — start capturing so we can transcribe the question.
