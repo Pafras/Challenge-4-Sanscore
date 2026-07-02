@@ -157,10 +157,14 @@ Real face-to-face multiplayer over MultipeerConnectivity. Tested on 2 Simulators
 - Logic base tested (`SusEngine`), **real UI** (`GameFlowView`), **multiplayer + room
   code working** (tested device↔Simulator), **calibration** (3-question averaged
   baseline, shows your BPM), **lobby profiles** (avatar bubbles + editable names).
-- **Sensors**: speech + camera heart rate = **real** and verified on iPhone 17.
-  Structure (LLM) = still **mock** until Agung's `StructureAnalyzer` is merged
-  — the ONE remaining swap: `MockStructure()` → `StructureAnalyzer()` in
-  `GameViewModel.init`, then test on an iOS 26 Apple-Intelligence device.
+- **All sensors real**: speech, camera heart rate, AND the LLM. `GameViewModel.init`
+  auto-picks real on device / mock on Simulator; the LLM (`StructureAnalyzer`) is
+  gated `#if canImport(FoundationModels)` + `if #available(iOS 26)`, mock otherwise.
+  Agung's tuned analyzer (evasiveness/vagueness/timidity/incoherence) is live.
+- **Signing is per-developer** — `Config/Signing.xcconfig` (committed) optionally
+  includes `Config/Local.xcconfig` (git-ignored) where each dev sets their own
+  `DEVELOPMENT_TEAM` + `PRODUCT_BUNDLE_IDENTIFIER`. Copy `Local.example.xcconfig`
+  → `Local.xcconfig` on a fresh clone. Never commit signing to `project.pbxproj`.
 - **Simulator auto-uses mocks**, device auto-uses real (`#if targetEnvironment(simulator)`
   in `GameViewModel.init`) — so 2-Simulator multiplayer testing runs with no hardware.
 - Mocks have `Task.sleep` delays so loading/calculating screens are visible.
@@ -172,10 +176,10 @@ Real face-to-face multiplayer over MultipeerConnectivity. Tested on 2 Simulators
 
 - **Pafras** (lead) — SusEngine, ViewModel, integration, async/hardware modules
   (speech, camera PPG, room). Stronger coder.
-- **Agung** (beginner) — `StructureAnalyzer.swift` LLM (fill the `TODO(agung)`:
-  `@Generable` fields + prompt). Text in, score out; never touches audio.
-- **Marleen** (beginner) — `SusEngine.swift` tuning (`TODO(marleen)`: weights,
-  sensitivity, real calibration baseline) + keep the tests green.
+- **Agung** (beginner) — `StructureAnalyzer.swift` LLM: **DONE** (fields + prompt +
+  weights tuned, live on device). Next: helping Marleen slice the UI front end.
+- **Marleen** (beginner) — front-end UI slicing (with Agung). Was down for
+  `SusEngine.swift` tuning; UI is the current focus.
 - **Satria** — design only (Figma), no code.
 
 Beginners get isolated, spec'd, testable tasks behind protocols. Lead owns the
@@ -230,12 +234,10 @@ Apple-Intelligence device to actually run).
   Simulators to test rooms/turn-order. MultipeerConnectivity sim-to-sim is
   sometimes flaky; if a room isn't found, use 1 sim + a real iPhone.
 - **Real iPhone 17** needed for: camera PPG, real mic speech, Foundation Models LLM.
-- **Info.plist keys are already set** as `INFOPLIST_KEY_*` build settings in
-  `project.pbxproj` (the project uses `GENERATE_INFOPLIST_FILE = YES`, no manual
-  Info.plist): `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`,
-  `NSCameraUsageDescription`, `NSLocalNetworkUsageDescription`. `NSBonjourServices`
-  is an array — build settings can't hold it cleanly, so add it in Xcode's Info
-  tab (`_sanscore._tcp`, `_sanscore._udp`) if real rooms don't advertise.
+- **Info.plist is a real file now** (`Sanscore/Info.plist`, `INFOPLIST_FILE` set):
+  holds the mic/speech/camera/local-network/photo usage strings AND
+  `NSBonjourServices` (`_sanscore._tcp` / `_sanscore._udp`) — **required** for
+  MultipeerConnectivity discovery on real devices.
 
 ## Git
 
@@ -246,13 +248,15 @@ project (incl. the Xcode `.xcodeproj`) lives in the ONE repo now — the nested
 
 ## Likely next steps
 
-1. **Agung:** finish the 3 `TODO(agung)` in `StructureAnalyzer.swift` (tuning the
-   persona, prompt, evasiveness/vagueness weights — file mostly written). Then
-   Pafras swaps `MockStructure()` → `StructureAnalyzer()` in `GameViewModel.init`
-   and tests the full real pipeline on an iPhone 17.
-2. **Marleen:** `SusEngine.swift` weight/sensitivity tuning + keep tests green.
-3. **Satria:** design → then restyle `GameFlowView` screens.
-4. **TEMP to restore:** the solo single-phone loop (`startRound`) is kept for
+Logic + all real sensors + LLM = DONE. Focus shifts to the UI front end.
+
+1. **Agung + Marleen:** slice/build the UI front end from Satria's design. All
+   screens currently live in ONE file (`GameFlowView.swift`) — if two people edit
+   it at once, merge conflicts. Ask Pafras (this session) to split it into
+   per-screen files if that starts hurting. Keep the "logic files never import
+   SwiftUI / UI computes nothing" rule.
+2. **Satria:** deliver design → they restyle the screens.
+3. **TEMP to restore:** the solo single-phone loop (`startRound`) is kept for
    1-device testing; real play uses host round-robin (`startSession`). Fine as-is.
-5. Later polish: capture HR *during* the answer (not after); 3-endpoint disconnect
+4. Later polish: capture HR *during* the answer (not after); 3-endpoint disconnect
    testing; running scoreboard across rounds; Apple Watch HR (v2).
