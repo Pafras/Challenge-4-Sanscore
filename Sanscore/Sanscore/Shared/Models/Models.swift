@@ -89,3 +89,13 @@ struct RoundResult: Codable {
     var score: Double
     var verdict: String
 }
+
+// Everything that travels between phones in a room. One envelope type so
+// RoomService has a single send/receive path. Names identify roles — the host
+// broadcasts WHO asks/answers, each phone checks its own name, so devices don't
+// need a matching player order.
+enum RoomMessage: Codable {
+    case turn(asker: String, answerer: String)   // host -> all, each round
+    case question(String)                        // asker -> answerer
+    case result(RoundResult)                     // answerer -> all
+}

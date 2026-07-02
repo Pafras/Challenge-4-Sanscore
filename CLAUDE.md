@@ -68,7 +68,6 @@ Sanscore/Sanscore/
   Shared/Connectivity/RoomService.swift    MultipeerConnectivity, iOS
   SanscoreiOS/ViewModels/GameViewModel.swift  the bridge; UI reads this
   SanscoreiOS/Views/GameFlowView.swift     the real UI: all screens, switches on vm.state
-  SanscoreiOS/Views/RoomBrowserView.swift  "Join room" — Apple's MCBrowserViewController
   SanscoreiOS/App/SanscoreApp.swift        @main -> GameFlowView()
 Tests/SusEngineXCTests.swift            add to a Unit Test target, Cmd+U
 Tests/SusEngineTests.swift              command-line version of the same asserts

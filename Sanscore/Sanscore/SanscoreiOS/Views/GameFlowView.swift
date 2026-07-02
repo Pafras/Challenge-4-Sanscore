@@ -8,6 +8,9 @@
 
 import SwiftUI
 import Combine
+#if os(iOS)
+import MultipeerConnectivity
+#endif
 
 struct GameFlowView: View {
     @State private var vm = GameViewModel()   // all mocks by default
@@ -79,8 +82,11 @@ private struct RoomSetupView: View {
             .buttonStyle(.bordered)
             Button("Create room") { vm.createRoom() }
                 .buttonStyle(.borderedProminent)
-            Button("Join room") { showBrowser = true }
-                .buttonStyle(.bordered)
+            Button("Join room") {
+                vm.startBrowsing()
+                showBrowser = true
+            }
+            .buttonStyle(.bordered)
         }
         .padding()
         #if os(iOS)
@@ -90,12 +96,47 @@ private struct RoomSetupView: View {
             _ = await RealSpeechCapture.requestPermission()
         }
         .sheet(isPresented: $showBrowser) {
-            RoomBrowserView(room: vm.room)
-                .onDisappear { vm.joinRoom() }
+            JoinRoomView(vm: vm)
         }
         #endif
     }
 }
+
+#if os(iOS)
+// Custom nearby-rooms picker: shows found hosts by name, asks for the code,
+// then joins. Replaces MCBrowserViewController so we can gate on the code.
+private struct JoinRoomView: View {
+    let vm: GameViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var selected: MCPeerID?
+    @State private var code = ""
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if vm.room.foundRooms.isEmpty {
+                    Text("Looking for nearby rooms…")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(vm.room.foundRooms, id: \.self) { host in
+                    Button(host.displayName) { selected = host }
+                }
+            }
+            .navigationTitle("Join a room")
+            .alert("Enter room code", isPresented: .constant(selected != nil)) {
+                TextField("4-digit code", text: $code)
+                    .keyboardType(.numberPad)
+                Button("Join") {
+                    if let host = selected { vm.join(host, code: code) }
+                    code = ""; selected = nil
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) { code = ""; selected = nil }
+            }
+        }
+    }
+}
+#endif
 
 private struct RoomLobbyView: View {
     let vm: GameViewModel
@@ -104,6 +145,19 @@ private struct RoomLobbyView: View {
         VStack(spacing: 16) {
             Text("Room ready")
                 .font(.title2.bold())
+            if vm.room.isHost {
+                VStack(spacing: 2) {
+                    Text("Room code")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(vm.room.roomCode)
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                }
+                Text("Share this code with players")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             if vm.room.connectedPeers.isEmpty {
                 Text("Waiting for players to join…")
                     .foregroundStyle(.secondary)
@@ -113,17 +167,24 @@ private struct RoomLobbyView: View {
                 }
             }
             Spacer()
-            Button("Start") { vm.startRound() }
-                .buttonStyle(.borderedProminent)
+            // Host starts the game; joiners wait for the host's turn assignment.
+            if vm.room.isHost || vm.room.connectedPeers.isEmpty {
+                Button("Start") { vm.start() }
+                    .buttonStyle(.borderedProminent)
+            } else {
+                Text("Waiting for the host to start…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
             #if DEBUG
             VStack(spacing: 8) {
-                Text("Dev: force role (multiplayer test)")
+                Text("Dev: force role (solo screen test)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
-                    Button("Asker") { vm.startSession(forcedRole: .asker) }
-                    Button("Answerer") { vm.startSession(forcedRole: .answerer) }
-                    Button("Spectator") { vm.startSession(forcedRole: .spectator) }
+                    Button("Asker") { vm.forceRole(.asker) }
+                    Button("Answerer") { vm.forceRole(.answerer) }
+                    Button("Spectator") { vm.forceRole(.spectator) }
                 }
                 .buttonStyle(.bordered)
                 .font(.caption)

@@ -46,69 +46,110 @@ final class GameViewModel {
     private var responseClockStart: Date?
     private var measuredResponseTime: Double = 0
 
-    // Inject anything conforming to the protocols. Swap mocks -> real ONE at a
-    // time, testing on a real device after each (see CLAUDE.md "Sensor swap").
-    // Step 1 DONE: speech real. Step 2 DONE: heart real. Step 3: structure/LLM
-    // still mock — swap to StructureAnalyzer() once Agung's tuning is merged.
-    // NOTE: real speech + heart need a real iPhone — they won't work in the
-    // Simulator. Put the Mock* back here if you need to demo on Simulator.
+    // Inject anything conforming to the protocols. Real speech + heart need a
+    // real iPhone (camera/mic), so on the Simulator we auto-fall back to mocks
+    // — lets 2-Simulator multiplayer testing build + run without hardware.
+    // Pass explicit modules to override. structure/LLM stays mock until Agung's
+    // StructureAnalyzer is merged, then swap the default here.
     init(engine: SusEngine = SusEngine(),
-         heart: HeartRateSource = RealHeartRate(),
-         speech: SpeechCapturing = RealSpeechCapture(),
+         heart: HeartRateSource? = nil,
+         speech: SpeechCapturing? = nil,
          structure: StructureAnalyzing = MockStructure()) {
         self.engine = engine
-        self.heart = heart
-        self.speech = speech
+        #if targetEnvironment(simulator)
+        self.heart = heart ?? MockHeartRate()
+        self.speech = speech ?? MockSpeech()
+        #else
+        self.heart = heart ?? RealHeartRate()
+        self.speech = speech ?? RealSpeechCapture()
+        #endif
         self.structure = structure
         self.room = RoomService(displayName: UIDevice.current.name)
-        self.room.onReceive = { [weak self] result in self?.receivedResult(result) }
+        self.room.onMessage = { [weak self] message in self?.handle(message) }
     }
 
-    // A RoundResult arrived from the answerer's phone. Only asker (waiting)
-    // and spectators (watching) act on it — the answerer already scored
-    // itself locally in runRound().
-    private func receivedResult(_ result: RoundResult) {
-        guard state == .waitingForResult || state == .spectating else { return }
-        lastResult = SusResult(score: result.score, band: SusBand(score: result.score), verdict: result.verdict)
-        state = .result
+    private var myName: String { room.myPeerID.displayName }
+    private var round = 0   // host-only round counter for round-robin turns
+
+    // Every message from another phone lands here.
+    private func handle(_ message: RoomMessage) {
+        switch message {
+        case let .turn(asker, answerer):
+            applyTurn(asker: asker, answerer: answerer)
+        case let .question(text):
+            // Only the answerer needs the question (for the LLM).
+            if myRole == .answerer { setQuestion(text) }
+        case let .result(result):
+            // Asker (waiting) + spectators show it; the answerer already has it.
+            guard state == .waitingForResult || state == .spectating else { return }
+            lastResult = SusResult(score: result.score, band: SusBand(score: result.score), verdict: result.verdict)
+            state = .result
+        }
+    }
+
+    // This device's role for the round, from the host's assignment. Roulette
+    // first, then land on the assigned screen.
+    private func applyTurn(asker: String, answerer: String) {
+        lastResult = nil
+        currentQuestion = ""
+        state = .roleReveal
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            if myName == asker {
+                myRole = .asker
+                state = .asking
+            } else if myName == answerer {
+                myRole = .answerer
+                responseClockStart = Date()
+                state = .answering
+            } else {
+                myRole = .spectator
+                state = .spectating
+            }
+        }
     }
 
     // --- Room setup ---
 
-    // "Create room" — become host, accept joiners.
+    // "Create room" — become host, generate a code, go to the lobby.
     func createRoom() {
         room.startHosting()
         state = .roomLobby
     }
 
-    // "Join room" — the view presents RoomBrowserView (MCBrowserViewController)
-    // as a sheet; this just moves the state forward once that sheet is done.
-    func joinRoom() {
+    // "Join room" — start scanning for nearby hosts (shown in a picker).
+    func startBrowsing() {
+        room.startBrowsing()
+    }
+
+    // Joiner picked a nearby room + typed the code -> invite, go wait in lobby.
+    // If the code is wrong the host rejects and the lobby stays empty.
+    func join(_ host: MCPeerID, code: String) {
+        room.join(host, code: code)
+        room.stopBrowsing()
         state = .roomLobby
     }
 
-    // Host (or solo dev testing) tapped "start". Roulette animation, then
-    // this device's role for the round gets picked.
-    // forcedRole lets #if DEBUG dev buttons skip the coin flip for testing.
-    // Real play always passes nil (random).
-    func startSession(forcedRole: PlayerRole? = nil) {
-        lastResult = nil
-        state = .roleReveal
-        Task {
-            try? await Task.sleep(for: .seconds(2))
-            myRole = forcedRole ?? [.asker, .answerer, .spectator].randomElement()!
-            switch myRole {
-            case .asker:
-                currentQuestion = ""   // the asker types their own question next
-                state = .asking
-            case .answerer:
-                responseClockStart = Date()
-                state = .answering
-            case .spectator:
-                state = .spectating
-            }
-        }
+    // Host taps "Start"/"Next round": pick this round's asker + answerer
+    // round-robin from the player list, broadcast to everyone, and apply it
+    // locally (the host plays too). Only the host calls this.
+    func startSession() {
+        let players = room.players
+        guard players.count >= 2 else { return }   // need at least an asker + answerer
+        let asker = players[round % players.count]
+        let answerer = players[(round + 1) % players.count]
+        round += 1
+        room.send(.turn(asker: asker, answerer: answerer))
+        applyTurn(asker: asker, answerer: answerer)
     }
+
+    #if DEBUG
+    // Dev-only: force this device's role for solo screen testing (no room).
+    func forceRole(_ role: PlayerRole) {
+        applyTurn(asker: role == .asker ? myName : "_",
+                  answerer: role == .answerer ? myName : "_")
+    }
+    #endif
 
     // --- Calibration ---
     // Capture the player's OWN normal (heart rate, speech rate, response time)
@@ -190,10 +231,8 @@ final class GameViewModel {
     // one phone can play a full ask -> answer -> result round. This is also the
     // single-question path the LLM needs to be testable end-to-end.
     //
-    // Multiplayer (peers connected): broadcast the question text to the room so
-    // the answerer's phone can feed it to its LLM, then wait for the result.
-    // ponytail: the multiplayer broadcast of the question isn't wired yet —
-    // needs turn-order sync (see RoomService.swift). Solo path works today.
+    // Multiplayer (peers connected): send the question text to the answerer's
+    // phone (for its LLM), then wait for the result.
     func askerReleased() {
         Task {
             let q = await speech.stopAndTranscribe()
@@ -205,7 +244,7 @@ final class GameViewModel {
                 responseClockStart = Date()
                 state = .answering
             } else {
-                // Multiplayer: TODO broadcast `q.text` to the answerer's phone.
+                room.send(.question(q.text))
                 state = .waitingForResult
             }
         }
@@ -268,20 +307,26 @@ final class GameViewModel {
         lastResult = result
         state = .result
 
-        room.broadcast(RoundResult(answererName: room.myPeerID.displayName, score: result.score, verdict: result.verdict))
+        room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict)))
     }
 
-    // "Next round" — restart the loop: ask -> answer -> loading -> calculating
-    // -> result -> (next) -> ask... The asker's release solo-flips to answering
-    // (see askerReleased), so this just drops back to the asking screen.
+    // "Next round". Multiplayer: the host assigns the next turn (round-robin)
+    // and broadcasts it. Solo (no peers): fall back to the single-phone loop.
     func nextRound() {
-        startRound()
+        if room.connectedPeers.isEmpty {
+            startRound()
+        } else if room.isHost {
+            startSession()
+        }
+        // Non-host multiplayer clients wait for the host's next .turn message.
     }
 
-    // TEMP (testing/debugging only): a fixed single-phone loop that skips the
-    // roulette + role assignment so one device can run ask->answer->result
-    // repeatedly. RESTORE for real multiplayer: point "Start"/nextRound back at
-    // startSession() (roulette role reveal) once the sensor + LLM fixes are done.
+    // Lobby "Start". Same split as nextRound.
+    func start() {
+        nextRound()
+    }
+
+    // Solo single-phone loop: skip roles, this device asks then answers.
     func startRound() {
         lastResult = nil
         currentQuestion = ""

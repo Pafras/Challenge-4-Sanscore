@@ -29,7 +29,6 @@ Shared/Services/RealHeartRate.swift
 Shared/Connectivity/RoomService.swift
 SanscoreiOS/ViewModels/GameViewModel.swift
 SanscoreiOS/Views/GameFlowView.swift
-SanscoreiOS/Views/RoomBrowserView.swift
 SanscoreiOS/App/SanscoreApp.swift
 ```
 
