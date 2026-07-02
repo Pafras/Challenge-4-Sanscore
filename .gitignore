@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Per-developer signing (team + bundle id) — never commit; use Local.example.xcconfig
+Local.xcconfig
+
 # Xcode
 #
 # gitignore contributors: remember to update Global/Xcode.gitignore, Objective-C.gitignore & Swift.gitignore

@@ -61,24 +61,34 @@ final class GameViewModel {
     private var responseClockStart: Date?
     private var measuredResponseTime: Double = 0
 
-    // Inject anything conforming to the protocols. Real speech + heart need a
-    // real iPhone (camera/mic), so on the Simulator we auto-fall back to mocks
-    // — lets 2-Simulator multiplayer testing build + run without hardware.
-    // Pass explicit modules to override. structure/LLM stays mock until Agung's
-    // StructureAnalyzer is merged, then swap the default here.
+    // Inject anything conforming to the protocols. Real modules need a real
+    // iPhone (camera/mic) and, for the LLM, iOS 26 + Apple Intelligence, so on
+    // the Simulator / older OS we auto-fall back to mocks — lets 2-Simulator
+    // multiplayer testing build + run without hardware. Pass explicit modules
+    // to override.
     init(engine: SusEngine = SusEngine(),
          heart: HeartRateSource? = nil,
          speech: SpeechCapturing? = nil,
-         structure: StructureAnalyzing = MockStructure()) {
+         structure: StructureAnalyzing? = nil) {
         self.engine = engine
         #if targetEnvironment(simulator)
         self.heart = heart ?? MockHeartRate()
         self.speech = speech ?? MockSpeech()
+        self.structure = structure ?? MockStructure()
         #else
         self.heart = heart ?? RealHeartRate()
         self.speech = speech ?? RealSpeechCapture()
+        // Real LLM only where Foundation Models exists + iOS 26; else mock.
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            self.structure = structure ?? StructureAnalyzer()
+        } else {
+            self.structure = structure ?? MockStructure()
+        }
+        #else
+        self.structure = structure ?? MockStructure()
         #endif
-        self.structure = structure
+        #endif
         self.room = RoomService(displayName: UIDevice.current.name)
         wireRoom()
     }

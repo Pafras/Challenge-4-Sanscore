@@ -1,0 +1,15 @@
+// Shared build config for signing.
+//
+// Personal signing (your Apple team + bundle id) does NOT belong in git — it
+// differs per developer and kept overwriting teammates' builds. Put yours in
+// Local.xcconfig (this folder, git-ignored):
+//
+//   1. Copy  Local.example.xcconfig  ->  Local.xcconfig
+//   2. Fill in your DEVELOPMENT_TEAM and PRODUCT_BUNDLE_IDENTIFIER
+//
+// Local.xcconfig is optionally included below and overrides these defaults.
+
+PRODUCT_BUNDLE_IDENTIFIER = com.sanscore.app
+DEVELOPMENT_TEAM =
+
+#include? "Local.xcconfig"
