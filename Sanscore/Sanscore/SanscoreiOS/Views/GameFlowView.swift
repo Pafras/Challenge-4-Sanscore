@@ -46,7 +46,8 @@ struct GameFlowView: View {
                 CalculatingView()
             case .result:
                 if let result = vm.lastResult {
-                    ResultView(result: result) { vm.nextRound() }
+                    ResultView(result: result,
+                               canAdvance: vm.canAdvance) { vm.nextRound() }
                 }
             }
         }
@@ -66,8 +67,9 @@ struct GameFlowView: View {
 }
 
 private struct RoomSetupView: View {
-    let vm: GameViewModel
+    @Bindable var vm: GameViewModel
     @State private var showBrowser = false
+    @State private var showEditProfile = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -88,6 +90,10 @@ private struct RoomSetupView: View {
                     .multilineTextAlignment(.center)
             }
             Spacer()
+            Text("Playing as \(vm.playerName)")
+                .font(.subheadline)
+            Button("Edit profile") { showEditProfile = true }
+                .buttonStyle(.bordered)
             if vm.isCalibrated {
                 Label("Your normal: \(Int(vm.baseline.heartRate)) BPM", systemImage: "heart.fill")
                     .font(.subheadline)
@@ -111,6 +117,9 @@ private struct RoomSetupView: View {
             // Ask mic + speech permission up front so the answer round doesn't
             // silently fail. Harmless no-op with MockSpeech.
             _ = await RealSpeechCapture.requestPermission()
+        }
+        .sheet(isPresented: $showEditProfile) {
+            EditProfileView(vm: vm)
         }
         .sheet(isPresented: $showBrowser) {
             JoinRoomView(vm: vm)
@@ -136,7 +145,7 @@ private struct JoinRoomView: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(vm.room.foundRooms, id: \.self) { host in
-                    Button(host.displayName) { selected = host }
+                    Button(vm.room.roomNames[host] ?? host.displayName) { selected = host }
                 }
             }
             .navigationTitle("Join a room")
@@ -157,9 +166,19 @@ private struct JoinRoomView: View {
 
 private struct RoomLobbyView: View {
     let vm: GameViewModel
+    @State private var showEditProfile = false
+    @State private var showLeaveConfirm = false
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
+            HStack {
+                Button {
+                    showLeaveConfirm = true
+                } label: {
+                    Label("Leave", systemImage: "chevron.left")
+                }
+                Spacer()
+            }
             Text("Room ready")
                 .font(.title2.bold())
             if let alert = vm.roomAlert {
@@ -174,32 +193,25 @@ private struct RoomLobbyView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text(vm.room.roomCode)
-                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
                         .monospacedDigit()
                 }
-                Text("Share this code with players")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
-            if vm.room.connectedPeers.isEmpty {
-                Text("Waiting for players to join…")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(vm.room.connectedPeers, id: \.self) { peer in
-                    Label(peer, systemImage: "person.fill")
-                }
-            }
-            Spacer()
+
+            // Players float as bubbles (avatar or initials). Tap your own to
+            // edit your photo + name.
+            PlayerBubblesView(players: vm.room.players, avatars: vm.avatars,
+                              displayNames: vm.displayNames, me: vm.myName) { showEditProfile = true }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Text("Tap your bubble to edit your photo and name")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             // Host starts; joiners wait for the host's turn assignment.
             if vm.room.isHost {
-                if vm.room.connectedPeers.isEmpty {
-                    // Alone: single-phone solo loop (also how you dev-test).
-                    Button("Start (solo)") { vm.start() }
-                        .buttonStyle(.borderedProminent)
-                } else {
-                    Button("Start") { vm.start() }
-                        .buttonStyle(.borderedProminent)
-                }
+                Button(vm.room.connectedPeers.isEmpty ? "Start (solo)" : "Start") { vm.start() }
+                    .buttonStyle(.borderedProminent)
             } else {
                 Text("Waiting for the host to start…")
                     .font(.subheadline)
@@ -222,6 +234,149 @@ private struct RoomLobbyView: View {
             #endif
         }
         .padding()
+        .confirmationDialog(
+            vm.room.isHost ? "Close the room?" : "Leave the room?",
+            isPresented: $showLeaveConfirm, titleVisibility: .visible
+        ) {
+            Button(vm.room.isHost ? "Close room" : "Leave", role: .destructive) {
+                vm.leaveRoom()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(vm.room.isHost
+                 ? "Leaving closes the room for everyone."
+                 : "You'll leave the room and return to the start.")
+        }
+        #if os(iOS)
+        .sheet(isPresented: $showEditProfile) {
+            EditProfileView(vm: vm)
+        }
+        #endif
+    }
+}
+
+#if os(iOS)
+// Tap-your-bubble editor: photo (take/retake) + name. Name can change any time
+// (even mid-lobby) — it's a display label broadcast to the room, not the network
+// identity, so no reconnect.
+private struct EditProfileView: View {
+    @Bindable var vm: GameViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var showCamera = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Photo") {
+                    Button {
+                        showCamera = true
+                    } label: {
+                        Label(vm.avatars[vm.myName] == nil ? "Take photo" : "Retake photo",
+                              systemImage: "camera.fill")
+                    }
+                }
+                Section("Name") {
+                    TextField("Your name", text: $name)
+                }
+            }
+            .navigationTitle("Edit profile")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        vm.setDisplayName(name)
+                        dismiss()
+                    }
+                }
+            }
+            .onAppear { name = vm.playerName }
+            .sheet(isPresented: $showCamera) {
+                CameraPicker { image in vm.setMyAvatar(image) }
+            }
+        }
+    }
+}
+#endif
+
+// Player avatars drifting as bubbles. Gentle sine float per bubble; avatar photo
+// or initials fallback. Your own bubble is ringed.
+private struct PlayerBubblesView: View {
+    let players: [String]
+    let avatars: [String: Data]
+    let displayNames: [String: String]
+    let me: String
+    var onTapMe: () -> Void = {}
+
+    var body: some View {
+        GeometryReader { geo in
+            TimelineView(.animation) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+                ForEach(Array(players.enumerated()), id: \.element) { index, name in
+                    BubbleView(label: displayNames[name] ?? name, image: avatars[name], isMe: name == me)
+                        .position(position(index: index, count: players.count, size: geo.size, t: t))
+                        .onTapGesture { if name == me { onTapMe() } }
+                }
+            }
+        }
+    }
+
+    // Spread bubbles across a row (wrapping), plus a slow sine drift per bubble.
+    private func position(index: Int, count: Int, size: CGSize, t: Double) -> CGPoint {
+        let perRow = max(1, Int((size.width / 110).rounded(.down)))
+        let row = index / perRow
+        let col = index % perRow
+        let rowsUsed = (count + perRow - 1) / perRow
+        let cellW = size.width / CGFloat(perRow)
+        let cellH = min(140, size.height / CGFloat(max(1, rowsUsed)))
+        let baseX = cellW * (CGFloat(col) + 0.5)
+        let baseY = cellH * (CGFloat(row) + 0.5) + (size.height - cellH * CGFloat(rowsUsed)) / 2
+        let phase = Double(index) * 1.3
+        let driftX = CGFloat(sin(t * 0.7 + phase)) * 12
+        let driftY = CGFloat(cos(t * 0.5 + phase)) * 12
+        return CGPoint(x: baseX + driftX, y: baseY + driftY)
+    }
+}
+
+private struct BubbleView: View {
+    let label: String
+    let image: Data?
+    let isMe: Bool
+
+    private var initials: String {
+        String(label.split(separator: " ").compactMap(\.first).prefix(2)).uppercased()
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                Circle().fill(.tint.opacity(0.15))
+                #if os(iOS)
+                if let image, let ui = UIImage(data: image) {
+                    Image(uiImage: ui).resizable().scaledToFill()
+                        .clipShape(Circle())
+                } else {
+                    Text(initials).font(.title3.bold()).foregroundStyle(.tint)
+                }
+                #else
+                Text(initials).font(.title3.bold()).foregroundStyle(.tint)
+                #endif
+            }
+            .frame(width: 72, height: 72)
+            .overlay(Circle().stroke(isMe ? Color.accentColor : .clear, lineWidth: 3))
+            .overlay(alignment: .bottomTrailing) {
+                if isMe {
+                    Image(systemName: "camera.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.tint)
+                        .background(Circle().fill(.background))
+                }
+            }
+
+            Text(label)
+                .font(.caption2)
+                .lineLimit(1)
+                .frame(maxWidth: 84)
+        }
     }
 }
 
@@ -445,6 +600,7 @@ private struct CalculatingView: View {
 
 private struct ResultView: View {
     let result: SusResult
+    var canAdvance: Bool
     var onNext: () -> Void
 
     private var bandColor: Color {
@@ -497,9 +653,17 @@ private struct ResultView: View {
                 .padding(.top, 8)
 
             Spacer()
-            Button("Next round", action: onNext)
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
+            if canAdvance {
+                Button("Next round", action: onNext)
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
+            } else {
+                Text("Waiting for the host to start the next round…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+            }
         }
         .padding()
     }

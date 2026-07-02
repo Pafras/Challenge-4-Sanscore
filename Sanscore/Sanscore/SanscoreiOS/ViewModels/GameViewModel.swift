@@ -28,6 +28,10 @@ final class GameViewModel {
     // Who's the asker/answerer this round — so we know if a leaver breaks it.
     private var currentAsker = ""
     private var currentAnswerer = ""
+
+    // Lobby avatars: player name -> tiny JPEG. Includes self. UI shows these as
+    // floating bubbles; falls back to initials when a player has no photo.
+    var avatars: [String: Data] = [:]
     // ponytail: the asker only speaks the question out loud (push-to-talk,
     // no typing) — nothing captures its text yet, so this stays "". Fine for
     // Mock testing since StructureAnalyzing doesn't need it; the real LLM
@@ -35,11 +39,13 @@ final class GameViewModel {
     var currentQuestion: String = ""
 
     // --- Real room networking (create/join + result broadcast). ---
-    // ponytail: connect + broadcast results is real. Turn-order (who's asker,
-    // who's answerer, round number) is NOT synced over the room yet — each
-    // device rolls its own role locally in startSession(). Wire that through
-    // RoomService once multi-device turn-order is built (see RoomService.swift).
-    let room: RoomService
+    // Recreated when the player picks a name (MCPeerID's name is fixed at init).
+    private(set) var room: RoomService
+
+    // The name shown on this player's bubble + used as their MCPeerID. Defaults
+    // to the device name, but iOS 16+ redacts that to a generic "iPhone", so
+    // players should set their own in the lobby.
+    var playerName: String = UIDevice.current.name
 
     // --- Per-player baseline from the calibration round ---
     // ponytail: default baseline lets the app run before calibration is built.
@@ -74,16 +80,52 @@ final class GameViewModel {
         #endif
         self.structure = structure
         self.room = RoomService(displayName: UIDevice.current.name)
-        self.room.onMessage = { [weak self] message in self?.handle(message) }
-        self.room.onConnectionChange = { [weak self] in self?.connectionChanged() }
-        self.room.onPeerLeft = { [weak self] name in self?.peerLeft(name) }
+        wireRoom()
+    }
+
+    private func wireRoom() {
+        room.onMessage = { [weak self] message in self?.handle(message) }
+        room.onConnectionChange = { [weak self] in self?.connectionChanged() }
+        room.onPeerLeft = { [weak self] name in self?.peerLeft(name) }
+    }
+
+    // Chosen display names by stable id (MCPeerID name). The network identity
+    // never changes; only the shown label does — so a player can rename any time
+    // (even mid-lobby) without dropping the connection.
+    var displayNames: [String: String] = [:]
+
+    // The label to show for a player (their chosen name, else their peer name).
+    func label(for name: String) -> String { displayNames[name] ?? name }
+
+    // Set/change my display name — broadcast it; no reconnect. If I'm the host,
+    // also re-advertise so the nearby-room list shows the new name.
+    func setDisplayName(_ newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        playerName = trimmed
+        displayNames[myName] = trimmed
+        room.send(.rename(id: myName, display: trimmed))
+        room.updateHostName(trimmed)
     }
 
     private var inRound: Bool { state != .idle && state != .roomLobby }
 
     // A peer joined or left — track connection for the "host left" check.
     private func connectionChanged() {
-        if !room.connectedPeers.isEmpty { everConnected = true }
+        if !room.connectedPeers.isEmpty {
+            everConnected = true
+            // A newcomer won't have our avatar/name yet — resend both.
+            if let mine = avatars[myName] { room.send(.profile(name: myName, image: mine)) }
+            if let name = displayNames[myName] { room.send(.rename(id: myName, display: name)) }
+        }
+    }
+
+    // Player took/retook their lobby photo. Downscale to a tiny JPEG (the local
+    // network can't carry full-size images), store, and broadcast to the room.
+    func setMyAvatar(_ image: UIImage) {
+        guard let data = image.jpegThumbnail(maxSide: 160, quality: 0.6) else { return }
+        avatars[myName] = data
+        room.send(.profile(name: myName, image: data))
     }
 
     // A specific peer left. Decide based on who they were:
@@ -91,15 +133,18 @@ final class GameViewModel {
     // - active asker/answerer left -> this round can't finish -> back to lobby.
     // - anyone else (spectator/lobby) -> keep going, just a toast.
     private func peerLeft(_ name: String) {
+        // Ignore drops fired by our own leave — we're already heading to start.
+        guard state != .idle else { return }
         // Host left: as a joiner, we lose all peers.
         if !room.isHost, everConnected, room.connectedPeers.isEmpty {
-            if state != .idle { endRoom("The room closed — the host left.") }
+            endRoom("The room closed — the host left.")
             return
         }
+        let shown = label(for: name)
         if inRound, name == currentAsker || name == currentAnswerer {
-            returnToLobby("\(name) left — round ended.")
+            returnToLobby("\(shown) left — round ended.")
         } else {
-            showLeftNotice("\(name) left the room")
+            showLeftNotice("\(shown) left the room")
         }
     }
 
@@ -115,9 +160,17 @@ final class GameViewModel {
         }
     }
 
+    // User tapped Leave in the lobby — disconnect, back to start with a note on
+    // THIS device ("You left"); the others get an "X left" toast via peerLeft.
+    func leaveRoom() {
+        room.leave()
+        endRoom("You left the room.")
+    }
+
     // Full teardown to the start screen (host left, or user tapped Back).
     func endRoom(_ reason: String?) {
         roomAlert = reason
+        leftNotice = nil        // don't carry a stray "X left" toast to the start screen
         everConnected = false
         round = 0
         waitToken += 1          // cancel any pending round timeout
@@ -131,7 +184,7 @@ final class GameViewModel {
         state = .roomLobby
     }
 
-    private var myName: String { room.myPeerID.displayName }
+    var myName: String { room.myPeerID.displayName }
     private var round = 0   // host-only round counter for round-robin turns
 
     // Every message from another phone lands here.
@@ -147,6 +200,10 @@ final class GameViewModel {
             guard state == .waitingForResult || state == .spectating else { return }
             lastResult = SusResult(score: result.score, band: SusBand(score: result.score), verdict: result.verdict)
             state = .result
+        case let .profile(name, image):
+            avatars[name] = image
+        case let .rename(id, display):
+            displayNames[id] = display
         }
     }
 
@@ -192,16 +249,18 @@ final class GameViewModel {
 
     // --- Room setup ---
 
-    // "Create room" — become host, generate a code, go to the lobby.
+    // "Create room" — become host, generate a code, advertise under my name.
     func createRoom() {
         roomAlert = nil
-        room.startHosting()
+        displayNames[myName] = playerName
+        room.startHosting(name: playerName)
         state = .roomLobby
     }
 
     // "Join room" — start scanning for nearby hosts (shown in a picker).
     func startBrowsing() {
         roomAlert = nil
+        displayNames[myName] = playerName
         room.startBrowsing()
     }
 
@@ -392,6 +451,11 @@ final class GameViewModel {
 
         room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict)))
     }
+
+    // Only the host (or a solo device) drives the pace. Non-host clients wait
+    // for the host's next-turn broadcast — their result screen shows a waiting
+    // label instead of a Next-round button.
+    var canAdvance: Bool { room.connectedPeers.isEmpty || room.isHost }
 
     // "Next round". Multiplayer: the host assigns the next turn (round-robin)
     // and broadcasts it. Solo (no peers): fall back to the single-phone loop.

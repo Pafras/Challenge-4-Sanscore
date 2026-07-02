@@ -98,4 +98,6 @@ enum RoomMessage: Codable {
     case turn(asker: String, answerer: String)   // host -> all, each round
     case question(String)                        // asker -> answerer
     case result(RoundResult)                     // answerer -> all
+    case profile(name: String, image: Data)      // any -> all: lobby avatar (tiny JPEG)
+    case rename(id: String, display: String)     // any -> all: chosen display name
 }

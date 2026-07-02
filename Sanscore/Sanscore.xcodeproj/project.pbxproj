@@ -15,9 +15,22 @@
 		F2B260052FF4DB15002AAAE5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F2AF66A42FF6458A00A994EC /* Exceptions for "Sanscore" folder in "Sanscore" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = F2B25FFD2FF4DB14002AAAE5 /* Sanscore */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		F2B260002FF4DB14002AAAE5 /* Sanscore */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F2AF66A42FF6458A00A994EC /* Exceptions for "Sanscore" folder in "Sanscore" target */,
+			);
 			path = Sanscore;
 			sourceTree = "<group>";
 		};
@@ -263,9 +276,11 @@
 				DEVELOPMENT_TEAM = GDPL2X32L7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Sanscore/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Read your heartbeat from your fingertip.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Find nearby players to join your room.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hear your answer.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick a lobby photo.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Turn your answer into text.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -300,9 +315,11 @@
 				DEVELOPMENT_TEAM = GDPL2X32L7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Sanscore/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Read your heartbeat from your fingertip.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Find nearby players to join your room.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hear your answer.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick a lobby photo.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Turn your answer into text.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

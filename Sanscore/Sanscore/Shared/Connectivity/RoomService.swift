@@ -26,7 +26,7 @@ final class RoomService: NSObject {
     let myPeerID: MCPeerID
     let session: MCSession
 
-    private let advertiser: MCNearbyServiceAdvertiser
+    private var advertiser: MCNearbyServiceAdvertiser   // recreated to change the advertised name
     private let browser: MCNearbyServiceBrowser
 
     // UI watches these.
@@ -39,6 +39,8 @@ final class RoomService: NSObject {
     // Nearby hosts the joiner can pick from (custom browser, so we can gate
     // joining behind the code).
     var foundRooms: [MCPeerID] = []
+    // Host peerID -> the chosen display name it advertised (for the join list).
+    var roomNames: [MCPeerID: String] = [:]
 
     // Called whenever a message arrives from another phone.
     var onMessage: ((RoomMessage) -> Void)?
@@ -60,21 +62,59 @@ final class RoomService: NSObject {
         browser.delegate = self
     }
 
-    // "Make room" — become host, generate a code, accept matching joiners.
-    func startHosting() {
+    // "Make room" — become host, generate a code, advertise under `name`.
+    func startHosting(name: String) {
         isHost = true
         roomCode = String(format: "%04d", Int.random(in: 0...9999))
-        advertiser.startAdvertisingPeer()
+        restartAdvertiser(name: name)
     }
     func stopHosting() { advertiser.stopAdvertisingPeer() }
 
-    // "Join room" — start listening for nearby hosts.
-    func startBrowsing() { browser.startBrowsingForPeers() }
+    // Re-advertise under a new display name (carried in discoveryInfo so the
+    // join list shows it). Recreating the advertiser does NOT drop the session —
+    // connected players stay; only future discovery sees the new name.
+    func updateHostName(_ name: String) {
+        guard isHost else { return }
+        restartAdvertiser(name: name)
+    }
+
+    private func restartAdvertiser(name: String) {
+        advertiser.stopAdvertisingPeer()
+        advertiser = MCNearbyServiceAdvertiser(peer: myPeerID,
+                                               discoveryInfo: ["name": name],
+                                               serviceType: RoomService.serviceType)
+        advertiser.delegate = self
+        advertiser.startAdvertisingPeer()
+    }
+
+    // "Join room" — start listening for nearby hosts. Clear the list first so a
+    // host that already left doesn't linger (MultipeerConnectivity's lostPeer
+    // callback can lag several seconds).
+    func startBrowsing() {
+        // Restart (stop then start) so already-discovered hosts are re-reported
+        // after we clear the list — otherwise a second browse shows nothing.
+        browser.stopBrowsingForPeers()
+        foundRooms = []
+        roomNames = [:]
+        browser.startBrowsingForPeers()
+    }
     func stopBrowsing() { browser.stopBrowsingForPeers() }
 
     // Joiner tapped a room + entered a code — invite with the code attached.
     func join(_ host: MCPeerID, code: String) {
         browser.invitePeer(host, to: session, withContext: Data(code.utf8), timeout: 15)
+    }
+
+    // Leave the room entirely: disconnect, stop advertising/browsing, reset.
+    func leave() {
+        advertiser.stopAdvertisingPeer()
+        browser.stopBrowsingForPeers()
+        session.disconnect()
+        isHost = false
+        roomCode = ""
+        connectedPeers = []
+        foundRooms = []
+        roomNames = [:]
     }
 
     // Everyone in the room, host first, in a stable order — the host uses this
@@ -104,11 +144,13 @@ extension RoomService: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String: String]?) {
         DispatchQueue.main.async {
             if !self.foundRooms.contains(peerID) { self.foundRooms.append(peerID) }
+            self.roomNames[peerID] = info?["name"] ?? peerID.displayName
         }
     }
     func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
         DispatchQueue.main.async {
             self.foundRooms.removeAll { $0 == peerID }
+            self.roomNames[peerID] = nil
         }
     }
 }
