@@ -42,6 +42,10 @@ final class RoomService: NSObject {
 
     // Called whenever a message arrives from another phone.
     var onMessage: ((RoomMessage) -> Void)?
+    // Called whenever the connected-peers set changes (join or leave).
+    var onConnectionChange: (() -> Void)?
+    // Called with the display name of a peer that just left.
+    var onPeerLeft: ((String) -> Void)?
 
     init(displayName: String) {
         myPeerID = MCPeerID(displayName: displayName)
@@ -113,6 +117,10 @@ extension RoomService: MCSessionDelegate {
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         DispatchQueue.main.async {
             self.connectedPeers = session.connectedPeers.map { $0.displayName }
+            self.onConnectionChange?()
+            if state == .notConnected {
+                self.onPeerLeft?(peerID.displayName)
+            }
         }
     }
 

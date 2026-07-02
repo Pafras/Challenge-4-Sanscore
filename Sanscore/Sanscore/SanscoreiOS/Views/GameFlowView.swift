@@ -51,6 +51,17 @@ struct GameFlowView: View {
             }
         }
         .animation(.default, value: vm.state)
+        .overlay(alignment: .top) {
+            if let notice = vm.leftNotice {
+                Label(notice, systemImage: "person.fill.xmark")
+                    .font(.footnote)
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.default, value: vm.leftNotice)
     }
 }
 
@@ -70,6 +81,12 @@ private struct RoomSetupView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+            if let alert = vm.roomAlert {
+                Label(alert, systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                    .multilineTextAlignment(.center)
+            }
             Spacer()
             if vm.isCalibrated {
                 Label("Your normal: \(Int(vm.baseline.heartRate)) BPM", systemImage: "heart.fill")
@@ -145,6 +162,12 @@ private struct RoomLobbyView: View {
         VStack(spacing: 16) {
             Text("Room ready")
                 .font(.title2.bold())
+            if let alert = vm.roomAlert {
+                Label(alert, systemImage: "info.circle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                    .multilineTextAlignment(.center)
+            }
             if vm.room.isHost {
                 VStack(spacing: 2) {
                     Text("Room code")
@@ -167,10 +190,16 @@ private struct RoomLobbyView: View {
                 }
             }
             Spacer()
-            // Host starts the game; joiners wait for the host's turn assignment.
-            if vm.room.isHost || vm.room.connectedPeers.isEmpty {
-                Button("Start") { vm.start() }
-                    .buttonStyle(.borderedProminent)
+            // Host starts; joiners wait for the host's turn assignment.
+            if vm.room.isHost {
+                if vm.room.connectedPeers.isEmpty {
+                    // Alone: single-phone solo loop (also how you dev-test).
+                    Button("Start (solo)") { vm.start() }
+                        .buttonStyle(.borderedProminent)
+                } else {
+                    Button("Start") { vm.start() }
+                        .buttonStyle(.borderedProminent)
+                }
             } else {
                 Text("Waiting for the host to start…")
                     .font(.subheadline)

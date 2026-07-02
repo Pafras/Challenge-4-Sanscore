@@ -19,6 +19,15 @@ final class GameViewModel {
     var state: GameState = .idle
     var myRole: PlayerRole = .spectator
     var lastResult: SusResult?
+    // Shown on the start screen when a room ends unexpectedly (host left, etc.).
+    var roomAlert: String?
+    // Transient toast over gameplay, e.g. "Budi left". Auto-clears.
+    var leftNotice: String?
+    // Track whether we ever fully connected, to tell "never joined" from "peer left".
+    private var everConnected = false
+    // Who's the asker/answerer this round — so we know if a leaver breaks it.
+    private var currentAsker = ""
+    private var currentAnswerer = ""
     // ponytail: the asker only speaks the question out loud (push-to-talk,
     // no typing) — nothing captures its text yet, so this stays "". Fine for
     // Mock testing since StructureAnalyzing doesn't need it; the real LLM
@@ -66,6 +75,60 @@ final class GameViewModel {
         self.structure = structure
         self.room = RoomService(displayName: UIDevice.current.name)
         self.room.onMessage = { [weak self] message in self?.handle(message) }
+        self.room.onConnectionChange = { [weak self] in self?.connectionChanged() }
+        self.room.onPeerLeft = { [weak self] name in self?.peerLeft(name) }
+    }
+
+    private var inRound: Bool { state != .idle && state != .roomLobby }
+
+    // A peer joined or left — track connection for the "host left" check.
+    private func connectionChanged() {
+        if !room.connectedPeers.isEmpty { everConnected = true }
+    }
+
+    // A specific peer left. Decide based on who they were:
+    // - host left     -> room closes, everyone to start screen.
+    // - active asker/answerer left -> this round can't finish -> back to lobby.
+    // - anyone else (spectator/lobby) -> keep going, just a toast.
+    private func peerLeft(_ name: String) {
+        // Host left: as a joiner, we lose all peers.
+        if !room.isHost, everConnected, room.connectedPeers.isEmpty {
+            if state != .idle { endRoom("The room closed — the host left.") }
+            return
+        }
+        if inRound, name == currentAsker || name == currentAnswerer {
+            returnToLobby("\(name) left — round ended.")
+        } else {
+            showLeftNotice("\(name) left the room")
+        }
+    }
+
+    // Transient toast that clears itself.
+    private var noticeToken = 0
+    private func showLeftNotice(_ text: String) {
+        leftNotice = text
+        noticeToken += 1
+        let token = noticeToken
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            if token == noticeToken { leftNotice = nil }
+        }
+    }
+
+    // Full teardown to the start screen (host left, or user tapped Back).
+    func endRoom(_ reason: String?) {
+        roomAlert = reason
+        everConnected = false
+        round = 0
+        waitToken += 1          // cancel any pending round timeout
+        state = .idle
+    }
+
+    // Soft reset: keep the room + connection, drop back to the lobby.
+    private func returnToLobby(_ reason: String?) {
+        roomAlert = reason
+        waitToken += 1          // cancel any pending round timeout
+        state = .roomLobby
     }
 
     private var myName: String { room.myPeerID.displayName }
@@ -92,6 +155,8 @@ final class GameViewModel {
     private func applyTurn(asker: String, answerer: String) {
         lastResult = nil
         currentQuestion = ""
+        currentAsker = asker
+        currentAnswerer = answerer
         state = .roleReveal
         Task {
             try? await Task.sleep(for: .seconds(2))
@@ -105,6 +170,22 @@ final class GameViewModel {
             } else {
                 myRole = .spectator
                 state = .spectating
+                armResultTimeout()
+            }
+        }
+    }
+
+    // Backstop only: real disconnects are caught instantly in connectionChanged.
+    // This just catches a silent stall (answerer's app froze but stayed
+    // connected). Token guards stale timers from earlier rounds.
+    private var waitToken = 0
+    private func armResultTimeout(seconds: Double = 30) {
+        waitToken += 1
+        let token = waitToken
+        Task {
+            try? await Task.sleep(for: .seconds(seconds))
+            if token == waitToken, state == .waitingForResult || state == .spectating {
+                returnToLobby("No result came back — back to the lobby.")
             }
         }
     }
@@ -113,12 +194,14 @@ final class GameViewModel {
 
     // "Create room" — become host, generate a code, go to the lobby.
     func createRoom() {
+        roomAlert = nil
         room.startHosting()
         state = .roomLobby
     }
 
     // "Join room" — start scanning for nearby hosts (shown in a picker).
     func startBrowsing() {
+        roomAlert = nil
         room.startBrowsing()
     }
 
@@ -134,6 +217,7 @@ final class GameViewModel {
     // round-robin from the player list, broadcast to everyone, and apply it
     // locally (the host plays too). Only the host calls this.
     func startSession() {
+        roomAlert = nil
         let players = room.players
         guard players.count >= 2 else { return }   // need at least an asker + answerer
         let asker = players[round % players.count]
@@ -246,6 +330,7 @@ final class GameViewModel {
             } else {
                 room.send(.question(q.text))
                 state = .waitingForResult
+                armResultTimeout()
             }
         }
     }
@@ -256,11 +341,9 @@ final class GameViewModel {
         currentQuestion = text
     }
 
-    // Escape hatch for .waitingForResult and .spectating — neither resolves
-    // without a real partner device broadcasting a RoundResult back (see
-    // askerReleased / receivedResult). Bails out to the start screen.
+    // Escape hatch from a waiting/spectating screen back to the start.
     func backToStart() {
-        state = .idle
+        endRoom(nil)
     }
 
     // Answerer pressed down to start talking — stop the response-time clock
@@ -328,6 +411,7 @@ final class GameViewModel {
 
     // Solo single-phone loop: skip roles, this device asks then answers.
     func startRound() {
+        roomAlert = nil
         lastResult = nil
         currentQuestion = ""
         myRole = .asker
