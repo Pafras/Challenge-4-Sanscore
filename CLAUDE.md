@@ -65,11 +65,13 @@ Sanscore/Sanscore/
   Shared/Services/StructureAnalyzer.swift  LLM, iOS 26+, #if canImport(FoundationModels)
   Shared/Services/RealSpeechCapture.swift  SFSpeechRecognizer, iOS
   Shared/Services/RealHeartRate.swift      camera PPG, iOS
+  Shared/Extensions/UIImage+Thumbnail.swift  shrink camera photo -> tiny JPEG avatar
   Shared/Connectivity/RoomService.swift    MultipeerConnectivity, iOS
   SanscoreiOS/ViewModels/GameViewModel.swift  the bridge; UI reads this
-  SanscoreiOS/Views/GameFlowView.swift     the real UI: all screens, switches on vm.state
-  SanscoreiOS/Views/RoomBrowserView.swift  "Join room" — Apple's MCBrowserViewController
+  SanscoreiOS/Views/GameFlowView.swift     the real UI: all screens + lobby bubbles
+  SanscoreiOS/Views/CameraPicker.swift     UIImagePickerController wrapper (lobby selfie)
   SanscoreiOS/App/SanscoreApp.swift        @main -> GameFlowView()
+  Info.plist                               NSBonjourServices (rooms) + usage strings
 Tests/SusEngineXCTests.swift            add to a Unit Test target, Cmd+U
 Tests/SusEngineTests.swift              command-line version of the same asserts
 ```
@@ -99,24 +101,72 @@ idle (create/join room) → roomLobby → roleReveal (roulette)
 - Response time is measured from asker-release → answerer-press timestamps
   (not the old "done asking → first word"), held in `GameViewModel`.
 - **Dev override:** `#if DEBUG` buttons in the lobby ("Asker/Answerer/Spectator")
-  force your role via `startSession(forcedRole:)` so you can test each role
-  without the dice. Not compiled into release builds.
-- `.waitingForResult` and `.spectating` have a "Back" button → `backToStart()`
-  → `.idle`, because neither resolves without a partner device (see below).
+  call `vm.forceRole(_:)` to force this device's role for solo screen testing.
+  Not compiled into release builds.
+- `.waitingForResult` and `.spectating` have a "Back" button → `backToStart()`.
+
+## Multiplayer (turn-order sync — WORKING)
+
+Real face-to-face multiplayer over MultipeerConnectivity. Tested on 2 Simulators.
+
+- **`RoomMessage`** enum (`Models.swift`) = one envelope for everything that
+  crosses the network: `.turn(asker,answerer)`, `.question(String)`,
+  `.result(RoundResult)`, `.profile(name,Data)` (avatar), `.rename(id,display)`
+  (chosen name). `RoomService.send(_:)` / `onMessage` is the single path.
+- **Host** = whoever taps "Create room" (`isHost = true`). Host generates a
+  **4-digit room code**, shown in the lobby. `NSBonjourServices` is set in
+  `Info.plist` (`_sanscore._tcp/_udp`) — required for discovery on real devices.
+- **Join** = custom nearby list (`RoomService.foundRooms` via `MCNearbyServiceBrowser`)
+  → tap a room → **enter the code** → `join(host, code:)` sends it as the invite
+  context → host's advertiser accepts only on match. Host's chosen name rides in
+  the advertiser's discoveryInfo (`roomNames`), so the list shows it, not "iPhone".
+  `startBrowsing` restarts the browser so a re-browse re-finds existing rooms.
+  (Replaced `MCBrowserViewController`; `RoomBrowserView.swift` deleted.)
+- **Identity vs display name**: the `MCPeerID` name (device name) is the stable
+  id used as the key everywhere (turns, avatars, `currentAsker/Answerer`). The
+  shown label is a separate broadcast (`displayNames`, `label(for:)`), so a player
+  can rename ANY time — even mid-lobby — via `setDisplayName`, no reconnect.
+- **Turns**: host `startSession()` picks asker+answerer round-robin from
+  `room.players` (sorted names), broadcasts `.turn`, applies locally (host plays
+  too). Every device's `applyTurn` matches its own name → asker/answerer/spectator.
+- **Question relay**: asker release → `send(.question)` → answerer's `setQuestion`.
+- **Result**: answerer scores → `send(.result)` → asker + spectators show it.
+- **"Start"/"Next round"** = `vm.start()`/`nextRound()`: host → `startSession`;
+  solo (no peers) → `startRound()` single-phone loop. Non-host clients wait — the
+  result screen shows "waiting for host" (only host/solo can advance, `canAdvance`).
+
+### Lobby (waiting room)
+- Players shown as drifting **avatar bubbles** (`PlayerBubblesView`): photo or
+  initials, your own ringed with a camera badge. Tap your bubble → `EditProfileView`
+  (take/retake photo via `CameraPicker`, edit name).
+- Avatars = tiny JPEG thumbnails (`UIImage+Thumbnail`) broadcast via `.profile`.
+- **Leave** = top-left chevron → confirmation dialog (host: "closes room";
+  player: "leave"). Leaver sees "You left the room" on start; others get an
+  "X left" toast.
+
+### Disconnect handling
+- **Host leaves** → room closes → everyone to start screen (`endRoom`), alert shown.
+- **Active asker/answerer leaves** → round can't finish → `returnToLobby` (room
+  stays alive, host restarts). Tracked via `currentAsker`/`currentAnswerer`.
+- **Spectator/other leaves** → game keeps going, transient toast "X left"
+  (`leftNotice`, auto-clears 3s).
+- **Silent stall backstop**: `armResultTimeout(30s)` → back to lobby if no result.
 
 ## Current state
 
-- Logic base code complete and tested (`SusEngine` math verified).
-- **Real UI built** (`GameFlowView`), runs the full flow above.
-- **Sensor swap in progress** (see "Sensor swap" below):
-  - Speech = **real** (`RealSpeechCapture`) — step 1 done. Needs a real iPhone;
-    won't transcribe in the Simulator.
-  - Heart rate + structure (LLM) = still **mock**.
-- Mocks now have artificial delays (`Task.sleep`) so the loading/calculating
-  screens are actually visible instead of flashing past.
-- Multiplayer NOT working: `RoomService` connects + broadcasts `RoundResult`,
-  but turn-order sync (who's asker/answerer, the question) is not built — each
-  phone rolls its own role locally. Real 2-device play doesn't coordinate yet.
+- Logic base tested (`SusEngine`), **real UI** (`GameFlowView`), **multiplayer + room
+  code working** (tested device↔Simulator), **calibration** (3-question averaged
+  baseline, shows your BPM), **lobby profiles** (avatar bubbles + editable names).
+- **Sensors**: speech + camera heart rate = **real** and verified on iPhone 17.
+  Structure (LLM) = still **mock** until Agung's `StructureAnalyzer` is merged
+  — the ONE remaining swap: `MockStructure()` → `StructureAnalyzer()` in
+  `GameViewModel.init`, then test on an iOS 26 Apple-Intelligence device.
+- **Simulator auto-uses mocks**, device auto-uses real (`#if targetEnvironment(simulator)`
+  in `GameViewModel.init`) — so 2-Simulator multiplayer testing runs with no hardware.
+- Mocks have `Task.sleep` delays so loading/calculating screens are visible.
+- HR: camera PPG, ~30fps, moving-average detrend + zero-crossing. ±10-15 BPM
+  jitter (accepted — party game). Capture is 8s AFTER the answer (loading screen
+  has a countdown ring); real fix later = capture during the answer.
 
 ## Team + ownership
 
@@ -143,66 +193,66 @@ async/hardware/integration. See `HANDOFF.md`.
 ## Known deliberate shortcuts (ponytail:)
 
 - Speech: 300 ms wait for the final transcript instead of awaiting `isFinal`.
-- Camera PPG: zero-crossing pulse count on a detrended signal (± a few BPM, fine
-  for a game) instead of bandpass + FFT.
-- Room: broadcasts results only — the turn-order state machine is not built yet.
+- Camera PPG: moving-average detrend + zero-crossing pulse count (± ~10-15 BPM,
+  fine for a game) instead of bandpass + FFT.
 - No App Store fallback for non-Apple-Intelligence devices (all users are iPhone
   17). `structure` is a plain `Double`; make it optional + add an availability
   guard when shipping to older devices.
+- HR captured AFTER the answer (see gotcha below), not during.
 
-## Sensor swap (mocks → real, ONE AT A TIME)
+## Sensor swap (mocks → real)
 
-Edit `GameViewModel.init` defaults, `Cmd+R` on a real device, test, then next.
-Rule: never swap two at once — if it breaks you won't know which.
+`GameViewModel.init` auto-picks: **real on device, mock on Simulator** (via
+`#if targetEnvironment(simulator)`). No manual flipping. Pass explicit modules to
+override. Only the LLM default is still `MockStructure` — swap to
+`StructureAnalyzer()` in the init once Agung's file is merged (needs an iOS 26
+Apple-Intelligence device to actually run).
 
-1. **Speech → `RealSpeechCapture()`** — DONE. Mic + speech permission is
-   requested up front in `RoomSetupView.task` (`RealSpeechCapture.requestPermission()`).
-2. **Heart rate → `RealHeartRate()`** — TODO. Grant camera. See gotcha below.
-3. **Structure → `StructureAnalyzer()`** — TODO, needs Agung's file finished +
-   an iOS 26 Apple-Intelligence device.
-
-Put `MockSpeech()` back in the init if you need to demo on the Simulator.
+- **Speech** (`RealSpeechCapture`) — DONE. Mic + speech permission requested up
+  front in `RoomSetupView.task`.
+- **Heart rate** (`RealHeartRate`) — DONE. Camera PPG, 30fps, torch, needs a
+  finger on the back camera during the 8s loading screen.
+- **Structure/LLM** (`StructureAnalyzer`) — still mock, waiting on Agung.
 
 ### Two known design gotchas (flag, don't silently fix)
-- **HR is captured ~12s AFTER the answer** (a fresh separate `RealHeartRate`
-  capture), so the loading screen becomes ~12s and HR is read post-stress, not
-  during. Also needs a finger on the back camera + torch while the person is
-  talking into the mic — physically awkward. Real fix later: capture HR *during*
+- **HR is captured ~8s AFTER the answer** (a fresh `RealHeartRate` capture on the
+  loading screen with a countdown ring), so HR is read post-stress, not during.
+  Needs a finger on the back camera + torch. Real fix later: capture HR *during*
   the answer.
-- **The asker's question is spoken, not transcribed** (we removed typing), so
-  `currentQuestion` stays "". `MockStructure` ignores it; the real
-  `StructureAnalyzer` will get an empty question and judge the answer alone.
+- **The asker's question IS now transcribed** (option A): asker holds to speak
+  the question → `RealSpeechCapture` transcribes it → `setQuestion` → sent to the
+  answerer's phone via `.question`. So the real `StructureAnalyzer` will get the
+  question text. (Solo single-phone: same device asks then answers.)
 
 ## Testing & hardware notes
 
-- **Simulator**: UI + mock flow only, AND only if speech is set back to
-  `MockSpeech()` (RealSpeechCapture needs a device).
-- **Real iPhone 17** needed for: camera PPG, real mic speech, Foundation Models
-  LLM, and (×2 devices) the room.
+- **Simulator**: full UI + multiplayer testing works (auto-mocks sensors). Run 2
+  Simulators to test rooms/turn-order. MultipeerConnectivity sim-to-sim is
+  sometimes flaky; if a room isn't found, use 1 sim + a real iPhone.
+- **Real iPhone 17** needed for: camera PPG, real mic speech, Foundation Models LLM.
 - **Info.plist keys are already set** as `INFOPLIST_KEY_*` build settings in
   `project.pbxproj` (the project uses `GENERATE_INFOPLIST_FILE = YES`, no manual
   Info.plist): `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`,
   `NSCameraUsageDescription`, `NSLocalNetworkUsageDescription`. `NSBonjourServices`
   is an array — build settings can't hold it cleanly, so add it in Xcode's Info
-  tab (`_sanscore._tcp`, `_sanscore._udp`) only when testing real rooms.
+  tab (`_sanscore._tcp`, `_sanscore._udp`) if real rooms don't advertise.
 
 ## Git
 
-Branch `dev` (integration). Per `STRUCTURE.md`: branch off `dev`
-(`feat/ios-*`, `feat/shared-*`, `feat/watch-*`), small PRs, merge back to `dev`.
-Nothing from this logic base is committed yet.
+Branch `dev` (integration), pushed to `origin` (github.com/Pafras/Challenge-4-Sanscore).
+Per `STRUCTURE.md`: branch off `dev`, small PRs, merge back to `dev`. The whole
+project (incl. the Xcode `.xcodeproj`) lives in the ONE repo now — the nested
+`Sanscore/.git` was removed so everything tracks together.
 
 ## Likely next steps
 
-Today's goal: **single-phone real sensors** (skip multiplayer for now).
-
-1. Test speech (step 1, done) on a real device — answerer role, hold-talk-release,
-   confirm the real transcript feeds the score.
-2. Swap heart rate (step 2) → test. Then structure/LLM (step 3) once Agung's done.
-3. **Agung:** finish the 3 `TODO(agung)` in `StructureAnalyzer.swift` — the file is
-   mostly written (fields + prompt + scoring exist); it's *tuning* the persona,
-   prompt wording, and the evasiveness/vagueness weights, not building from
-   scratch. He can't test without a real iPhone 17, so he tweaks on paper + hands
-   the file to Pafras for step 3.
-4. **Marleen:** `SusEngine.swift` weight/sensitivity tuning + keep tests green.
-5. Later: room turn-order sync (the real multiplayer gap), then Apple Watch HR (v2).
+1. **Agung:** finish the 3 `TODO(agung)` in `StructureAnalyzer.swift` (tuning the
+   persona, prompt, evasiveness/vagueness weights — file mostly written). Then
+   Pafras swaps `MockStructure()` → `StructureAnalyzer()` in `GameViewModel.init`
+   and tests the full real pipeline on an iPhone 17.
+2. **Marleen:** `SusEngine.swift` weight/sensitivity tuning + keep tests green.
+3. **Satria:** design → then restyle `GameFlowView` screens.
+4. **TEMP to restore:** the solo single-phone loop (`startRound`) is kept for
+   1-device testing; real play uses host round-robin (`startSession`). Fine as-is.
+5. Later polish: capture HR *during* the answer (not after); 3-endpoint disconnect
+   testing; running scoreboard across rounds; Apple Watch HR (v2).

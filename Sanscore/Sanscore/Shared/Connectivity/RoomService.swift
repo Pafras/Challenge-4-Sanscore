@@ -10,10 +10,9 @@
 //   NSLocalNetworkUsageDescription
 //   NSBonjourServices = ["_sanscore._tcp", "_sanscore._udp"]
 //
-// ponytail: this handles connect + broadcast results. The turn-order state
-// machine (whose turn, round number, scoreboard) is NOT here yet — the host
-// decides turns and broadcasts them the same way results are broadcast. Add
-// that once single-phone play works and you actually wire multiplayer.
+// Handles connect + all room messages (turn assignment, question, result) over
+// one send/receive path (RoomMessage). The host decides turns; every message is
+// broadcast the same way.
 
 #if os(iOS)
 import Foundation
@@ -27,14 +26,28 @@ final class RoomService: NSObject {
     let myPeerID: MCPeerID
     let session: MCSession
 
-    private let advertiser: MCNearbyServiceAdvertiser
+    private var advertiser: MCNearbyServiceAdvertiser   // recreated to change the advertised name
+    private let browser: MCNearbyServiceBrowser
 
     // UI watches these.
     var connectedPeers: [String] = []
-    var lastReceived: RoundResult?
+    var isHost = false
 
-    // Called whenever a result arrives from another phone.
-    var onReceive: ((RoundResult) -> Void)?
+    // Host's 4-digit room code; joiners must enter it to be accepted.
+    var roomCode = ""
+
+    // Nearby hosts the joiner can pick from (custom browser, so we can gate
+    // joining behind the code).
+    var foundRooms: [MCPeerID] = []
+    // Host peerID -> the chosen display name it advertised (for the join list).
+    var roomNames: [MCPeerID: String] = [:]
+
+    // Called whenever a message arrives from another phone.
+    var onMessage: ((RoomMessage) -> Void)?
+    // Called whenever the connected-peers set changes (join or leave).
+    var onConnectionChange: (() -> Void)?
+    // Called with the display name of a peer that just left.
+    var onPeerLeft: ((String) -> Void)?
 
     init(displayName: String) {
         myPeerID = MCPeerID(displayName: displayName)
@@ -42,19 +55,76 @@ final class RoomService: NSObject {
         advertiser = MCNearbyServiceAdvertiser(peer: myPeerID,
                                                discoveryInfo: nil,
                                                serviceType: RoomService.serviceType)
+        browser = MCNearbyServiceBrowser(peer: myPeerID, serviceType: RoomService.serviceType)
         super.init()
         session.delegate = self
         advertiser.delegate = self
+        browser.delegate = self
     }
 
-    // "Make room" — become host, accept joiners.
-    func startHosting() { advertiser.startAdvertisingPeer() }
+    // "Make room" — become host, generate a code, advertise under `name`.
+    func startHosting(name: String) {
+        isHost = true
+        roomCode = String(format: "%04d", Int.random(in: 0...9999))
+        restartAdvertiser(name: name)
+    }
     func stopHosting() { advertiser.stopAdvertisingPeer() }
 
-    // Broadcast this round's result to everyone in the room.
-    func broadcast(_ result: RoundResult) {
+    // Re-advertise under a new display name (carried in discoveryInfo so the
+    // join list shows it). Recreating the advertiser does NOT drop the session —
+    // connected players stay; only future discovery sees the new name.
+    func updateHostName(_ name: String) {
+        guard isHost else { return }
+        restartAdvertiser(name: name)
+    }
+
+    private func restartAdvertiser(name: String) {
+        advertiser.stopAdvertisingPeer()
+        advertiser = MCNearbyServiceAdvertiser(peer: myPeerID,
+                                               discoveryInfo: ["name": name],
+                                               serviceType: RoomService.serviceType)
+        advertiser.delegate = self
+        advertiser.startAdvertisingPeer()
+    }
+
+    // "Join room" — start listening for nearby hosts. Clear the list first so a
+    // host that already left doesn't linger (MultipeerConnectivity's lostPeer
+    // callback can lag several seconds).
+    func startBrowsing() {
+        // Restart (stop then start) so already-discovered hosts are re-reported
+        // after we clear the list — otherwise a second browse shows nothing.
+        browser.stopBrowsingForPeers()
+        foundRooms = []
+        roomNames = [:]
+        browser.startBrowsingForPeers()
+    }
+    func stopBrowsing() { browser.stopBrowsingForPeers() }
+
+    // Joiner tapped a room + entered a code — invite with the code attached.
+    func join(_ host: MCPeerID, code: String) {
+        browser.invitePeer(host, to: session, withContext: Data(code.utf8), timeout: 15)
+    }
+
+    // Leave the room entirely: disconnect, stop advertising/browsing, reset.
+    func leave() {
+        advertiser.stopAdvertisingPeer()
+        browser.stopBrowsingForPeers()
+        session.disconnect()
+        isHost = false
+        roomCode = ""
+        connectedPeers = []
+        foundRooms = []
+        roomNames = [:]
+    }
+
+    // Everyone in the room, host first, in a stable order — the host uses this
+    // for round-robin turn assignment.
+    var players: [String] { ([myPeerID.displayName] + connectedPeers).sorted() }
+
+    // Send a message to everyone else in the room.
+    func send(_ message: RoomMessage) {
         guard !session.connectedPeers.isEmpty,
-              let data = try? JSONEncoder().encode(result) else { return }
+              let data = try? JSONEncoder().encode(message) else { return }
         try? session.send(data, toPeers: session.connectedPeers, with: .reliable)
     }
 }
@@ -64,8 +134,24 @@ extension RoomService: MCNearbyServiceAdvertiserDelegate {
                     didReceiveInvitationFromPeer peerID: MCPeerID,
                     withContext context: Data?,
                     invitationHandler: @escaping (Bool, MCSession?) -> Void) {
-        // Party game, same room -> auto-accept joiners.
-        invitationHandler(true, session)
+        // Accept only if the joiner sent the right room code.
+        let sent = context.flatMap { String(data: $0, encoding: .utf8) }
+        invitationHandler(sent == roomCode, session)
+    }
+}
+
+extension RoomService: MCNearbyServiceBrowserDelegate {
+    func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String: String]?) {
+        DispatchQueue.main.async {
+            if !self.foundRooms.contains(peerID) { self.foundRooms.append(peerID) }
+            self.roomNames[peerID] = info?["name"] ?? peerID.displayName
+        }
+    }
+    func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
+        DispatchQueue.main.async {
+            self.foundRooms.removeAll { $0 == peerID }
+            self.roomNames[peerID] = nil
+        }
     }
 }
 
@@ -73,17 +159,20 @@ extension RoomService: MCSessionDelegate {
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         DispatchQueue.main.async {
             self.connectedPeers = session.connectedPeers.map { $0.displayName }
+            self.onConnectionChange?()
+            if state == .notConnected {
+                self.onPeerLeft?(peerID.displayName)
+            }
         }
     }
 
     func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
-        guard let result = try? JSONDecoder().decode(RoundResult.self, from: data) else { return }
+        guard let message = try? JSONDecoder().decode(RoomMessage.self, from: data) else { return }
         DispatchQueue.main.async {
-            self.lastReceived = result
-            self.onReceive?(result)
+            self.onMessage?(message)
         }
     }
-
+    
     // Unused transports — required by the protocol.
     func session(_ s: MCSession, didReceive stream: InputStream, withName n: String, fromPeer p: MCPeerID) {}
     func session(_ s: MCSession, didStartReceivingResourceWithName n: String, fromPeer p: MCPeerID, with progress: Progress) {}
