@@ -1,0 +1,9 @@
+// Copy this file to "Local.xcconfig" (same folder) and set your own values.
+// Local.xcconfig is git-ignored, so your signing never gets committed and never
+// overwrites a teammate's.
+//
+// DEVELOPMENT_TEAM: Xcode -> Settings -> Accounts -> your team -> Team ID
+//   (or read it off Signing & Capabilities once your team is selected).
+
+DEVELOPMENT_TEAM = YOURTEAMID
+PRODUCT_BUNDLE_IDENTIFIER = com.yourname.Sanscore

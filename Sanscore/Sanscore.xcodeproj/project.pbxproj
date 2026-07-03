@@ -13,6 +13,7 @@
 /* Begin PBXFileReference section */
 		F2B25FFE2FF4DB14002AAAE5 /* Sanscore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sanscore.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2B260052FF4DB15002AAAE5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F2B2600C2FF4DB15002AAAE5 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -50,6 +51,7 @@
 		F2B25FF52FF4DB14002AAAE5 = {
 			isa = PBXGroup;
 			children = (
+				F2B2600C2FF4DB15002AAAE5 /* Signing.xcconfig */,
 				F2B260052FF4DB15002AAAE5 /* Assets.xcassets */,
 				F2B260002FF4DB14002AAAE5 /* Sanscore */,
 				F2B25FFF2FF4DB14002AAAE5 /* Products */,
@@ -268,12 +270,12 @@
 		};
 		F2B2600A2FF4DB15002AAAE5 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F2B2600C2FF4DB15002AAAE5 /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9CFU6WK35D;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Sanscore/Info.plist;
@@ -293,7 +295,6 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.rizkiagung.Sanscore;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -307,12 +308,12 @@
 		};
 		F2B2600B2FF4DB15002AAAE5 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F2B2600C2FF4DB15002AAAE5 /* Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9CFU6WK35D;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Sanscore/Info.plist;
@@ -332,7 +333,6 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.rizkiagung.Sanscore;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
