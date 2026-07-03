@@ -14,10 +14,10 @@ per screen**. Each person owns separate files → you never touch the same file 
 
 | File | Screen (Figma) | Owner |
 |------|----------------|-------|
-| `HomePageView.swift` | Homepage (SUSS + JOIN/Create) | **Marleen** |
-| `JoinRoomView.swift` | Join Room (enter room code numpad) | **Marleen** |
-| `TakePictureView.swift` | Take a Picture (make your identity) | **Agung** |
-| `SwipeToEnterView.swift` | Slide to Enter ("you're all set") | **Agung** |
+| `HomePageView.swift` | Homepage (SUSS + JOIN/Create) | **Agung** |
+| `JoinRoomView.swift` | Join Room (enter room code numpad) | **Agung** |
+| `TakePictureView.swift` | Take a Picture (make your identity) | **Marleen** |
+| `SwipeToEnterView.swift` | Slide to Enter ("you're all set") | **Marleen** |
 | `GameRoomView.swift` | Game Room (bubbles, waiting, START) | **Agung** |
 | `RoundViews.swift` | gameplay (Let's Begin / Who's Next / result) | Pafras |
 | `GameFlowView.swift` | root state switch | Pafras |
@@ -27,7 +27,9 @@ All files: `Sanscore/Sanscore/SanscoreiOS/Views/`
 ## ✅ DO
 
 - **Edit only YOUR files** (the table above).
-- **Work on your own branch**: `git checkout dev && git pull && git checkout -b marleen/home`
+- **Work on your own branch**: `git checkout dev && git pull && git checkout -b marleen/photo`
+  (Marleen owns `TakePictureView` + `SwipeToEnterView`; Agung owns `HomePageView`
+  + `JoinRoomView` + `GameRoomView`.)
 - **`git pull` `dev` before you start** each session — stay current.
 - **Match Figma** — fonts, colors, spacing, images. Layout only.
 - **Use `#Preview`** (bottom of each file) — Xcode canvas renders YOUR screen

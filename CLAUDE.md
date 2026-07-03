@@ -182,10 +182,10 @@ screen** (matched to Satria's Figma "Suss Meter"). Full brief for the beginners:
 | File | Screen (Figma) | Structs | Owner |
 |------|----------------|---------|-------|
 | `GameFlowView.swift` | root state switch + `CheckeredBackground` | `GameFlowView` | Pafras |
-| `HomePageView.swift` | Homepage (SUSS + JOIN/Create) | `RoomSetupView` | Marleen |
-| `JoinRoomView.swift` | Join Room (code numpad) | `JoinRoomView` | Marleen |
-| `TakePictureView.swift` | Take a Picture (identity) | `EditProfileView` | Agung |
-| `SwipeToEnterView.swift` | Slide to Enter (**new stub**) | `SwipeToEnterView` | Agung + Pafras |
+| `HomePageView.swift` | Homepage (SUSS + JOIN/Create) | `RoomSetupView` | Agung |
+| `JoinRoomView.swift` | Join Room (code numpad) | `JoinRoomView` | Agung |
+| `TakePictureView.swift` | Take a Picture (identity) | `EditProfileView` | Marleen |
+| `SwipeToEnterView.swift` | Slide to Enter (**new stub**) | `SwipeToEnterView` | Marleen + Pafras |
 | `GameRoomView.swift` | Game Room (bubbles, START) | `RoomLobbyView`, `PlayerBubblesView`, `BubbleView` | Agung |
 | `RoundViews.swift` | gameplay (Let's Begin/Who's Next/result) | `RoleReveal`, `PushToTalk`, `Asking`, `Answering`, `Calibrating`, `Spectating`, `WaitingForResult`, `Loading`, `Calculating`, `Result` | Pafras |
 
