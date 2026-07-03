@@ -1,10 +1,10 @@
 // JoinRoomView.swift
-// Screen 2 — enter room code (Figma: "Join Room" / "ENTER ROOM CODE" numpad).
-// Custom nearby-rooms picker: shows found hosts by name, asks for the code,
-// then joins. Replaces MCBrowserViewController so we can gate on the code.
+// Screen 2 — Join Room searching. Shows "FINDING ROOOOM" with animated bars
+// while scanning for nearby hosts via MultipeerConnectivity. When a room is
+// found, auto-navigates to JoinRoomView2 (room list).
 //
-// OWNER: Marleen. Style to Figma (the numpad + code boxes). LAYOUT ONLY — call
-// existing vm methods, never edit GameViewModel. See HANDOFF-UI.md.
+// OWNER: Agung. Style to Figma. LAYOUT ONLY — call existing vm methods, never
+// edit GameViewModel. See HANDOFF-UI.md.
 
 import SwiftUI
 #if os(iOS)
@@ -13,36 +13,74 @@ import MultipeerConnectivity
 struct JoinRoomView: View {
     let vm: GameViewModel
     @Environment(\.dismiss) private var dismiss
-    @State private var selected: MCPeerID?
-    @State private var code = ""
 
     var body: some View {
-        NavigationStack {
-            List {
-                if vm.room.foundRooms.isEmpty {
-                    Text("Looking for nearby rooms…")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(vm.room.foundRooms, id: \.self) { host in
-                    Button(vm.room.roomNames[host] ?? host.displayName) { selected = host }
-                }
+        ZStack {
+            Image("pink-bg")
+                .resizable()
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                Image("finding-room")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 320)
+
+                LoadingBarsView()
+                    .padding(.top, 16)
+
+                Spacer()
             }
-            .navigationTitle("Join a room")
-            .alert("Enter room code", isPresented: .constant(selected != nil)) {
-                TextField("4-digit code", text: $code)
-                    .keyboardType(.numberPad)
-                Button("Join") {
-                    if let host = selected { vm.join(host, code: code) }
-                    code = ""; selected = nil
+        }
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    vm.room.stopBrowsing()
                     dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(.white)
                 }
-                Button("Cancel", role: .cancel) { code = ""; selected = nil }
             }
+        }
+        .navigationDestination(isPresented: .constant(!vm.room.foundRooms.isEmpty)) {
+            JoinRoomView2(vm: vm)
         }
     }
 }
 
+private struct LoadingBarsView: View {
+    @State private var animate = false
+    private let barCount = 5
+    private let barWidth: CGFloat = 4
+    private let maxHeight: CGFloat = 28
+    private let minHeight: CGFloat = 8
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<barCount, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(.white)
+                    .frame(width: barWidth, height: animate ? maxHeight : minHeight)
+                    .animation(
+                        .easeInOut(duration: 0.4)
+                        .repeatForever(autoreverses: true)
+                        .delay(Double(i) * 0.1),
+                        value: animate
+                    )
+            }
+        }
+        .onAppear { animate = true }
+    }
+}
+
 #Preview {
-    JoinRoomView(vm: GameViewModel())
+    NavigationStack {
+        JoinRoomView(vm: GameViewModel())
+    }
 }
 #endif

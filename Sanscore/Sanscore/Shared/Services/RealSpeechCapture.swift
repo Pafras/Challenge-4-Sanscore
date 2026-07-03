@@ -114,7 +114,6 @@ final class RealSpeechCapture: SpeechCapturing {
     }
 
     private func buildResult(from t: SFTranscription?) -> SpeechResult {
-        let t0 = startTime ?? Date()
         guard let t, let first = t.segments.first, let last = t.segments.last else {
             // Nothing heard. ViewModel handles empty text as "say it again".
             return SpeechResult(wordCount: 0, duration: 0, text: "", responseTime: 0)
