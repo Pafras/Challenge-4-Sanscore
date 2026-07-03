@@ -7,5 +7,7 @@
 		<string>_sanscore._tcp</string>
 		<string>_sanscore._udp</string>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Sanscore uses the local network to find and join nearby game rooms on the same Wi-Fi.</string>
 </dict>
 </plist>
