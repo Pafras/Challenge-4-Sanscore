@@ -191,7 +191,9 @@ screen** (matched to Satria's Figma "Suss Meter"). Full brief for the beginners:
 
 Notes:
 - **Struct names unchanged** (e.g. `HomePageView.swift` holds `RoomSetupView`) so
-  the root switch keeps working. Don't rename.
+  the root switch keeps working. Renaming a `.swift` FILE is fine (Swift ignores
+  filename≠struct); renaming a STRUCT breaks the `GameFlowView` switch until the
+  call site is updated — do struct renames with Pafras in the same PR.
 - **`private` gotcha handled:** 11 root-switch views + 3 cross-file helpers
   (`JoinRoomView`, `EditProfileView`, `CheckeredBackground`) are module-internal;
   `PushToTalkView`, `PlayerBubblesView`, `BubbleView` stay `private` (same-file).

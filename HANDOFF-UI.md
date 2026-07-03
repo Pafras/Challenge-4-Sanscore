@@ -64,8 +64,13 @@ All files: `Sanscore/Sanscore/SanscoreiOS/Views/`
 
 ## Notes
 
-- **Struct names kept the same** so the root switch keeps working — e.g.
-  `HomePageView.swift` contains `struct RoomSetupView`. Don't rename them.
+- **Renaming — file name OK, struct name NOT (ask Pafras).**
+  - The `.swift` **file** name: rename freely (your own file). Swift doesn't care
+    if filename ≠ struct name; synchronized folders keep it in the build.
+  - The **struct** name (`struct RoomSetupView`, `struct EditProfileView`, …):
+    the root switch in `GameFlowView.swift` calls these BY NAME, so renaming one
+    breaks the build until Pafras updates the switch. Leave struct names as-is;
+    if you really want a rename, tell Pafras so he does it in the same PR.
 - **`TakePicture` + `SwipeToEnter`** in Figma come BEFORE the room; today the
   code shows the photo as a lobby sheet. Re-ordering the flow = new `GameState` +
   `vm` method = **Pafras's job**. You build the layout; Pafras wires the order.
