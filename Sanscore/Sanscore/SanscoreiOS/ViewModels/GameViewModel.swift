@@ -42,10 +42,24 @@ final class GameViewModel {
     // Recreated when the player picks a name (MCPeerID's name is fixed at init).
     private(set) var room: RoomService
 
-    // The name shown on this player's bubble + used as their MCPeerID. Defaults
-    // to the device name, but iOS 16+ redacts that to a generic "iPhone", so
-    // players should set their own in the lobby.
+    // The human LABEL shown on this player's bubble. Defaults to the device
+    // name (iOS 16+ redacts that to a generic "iPhone"); players can rename in
+    // the lobby. This is display-only — the network IDENTITY is `installID`.
     var playerName: String = UIDevice.current.name
+
+    // Stable, unique-per-install id used as the MCPeerID NAME (the key for
+    // avatars/turns/players). Must be unique per device, but iOS 16+ makes
+    // UIDevice.name "iPhone" for EVERYONE, so two phones would collide (same
+    // key -> one player's photo overwrites the other's). A random id kept in
+    // UserDefaults stays stable across launches and distinct across devices.
+    // ponytail: 6 hex chars = plenty for a 4-5 person party room.
+    static var installID: String {
+        let key = "sanscore.installID"
+        if let existing = UserDefaults.standard.string(forKey: key) { return existing }
+        let fresh = String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(6))
+        UserDefaults.standard.set(fresh, forKey: key)
+        return fresh
+    }
 
     // --- Per-player baseline from the calibration round ---
     // ponytail: default baseline lets the app run before calibration is built.
@@ -89,8 +103,13 @@ final class GameViewModel {
         self.structure = structure ?? MockStructure()
         #endif
         #endif
-        self.room = RoomService(displayName: UIDevice.current.name)
+        // Identity = device name + unique install id, so two "iPhone"s never
+        // collide. The clean label is broadcast separately via `displayNames`.
+        self.room = RoomService(displayName: "\(UIDevice.current.name)-\(Self.installID)")
         wireRoom()
+        // Seed my display label so my bubble shows the clean name, not the
+        // suffixed identity key.
+        displayNames[myName] = playerName
     }
 
     private func wireRoom() {
