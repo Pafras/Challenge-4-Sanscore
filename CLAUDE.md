@@ -174,9 +174,14 @@ Real face-to-face multiplayer over MultipeerConnectivity. Tested on 2 Simulators
 
 ## UI slicing plan (Agung + Marleen)
 
-`GameFlowView.swift` is ONE file (~674 lines, 17 view structs, all `private`).
+`GameFlowView.swift` is ONE file (~769 lines, 18 view structs, all `private`).
 Two people editing it at once = merge conflicts. Slice into 3 files so each
 person owns a separate file:
+
+**Status:** Agung styled the home/welcome screen (`RoomSetupView` — hot pink
+`#FF5BCF`, big rounded/serif titles, `asset-home` imageset + `Design/` PNGs),
+pushed to `dev`. He did NOT slice yet — the file just grew. **Do the slice
+below BEFORE Marleen edits this file**, or she collides with Agung.
 
 - **`GameFlowView.swift`** — keep ONLY the root `GameFlowView` struct (the
   `GameState` switch + `leftNotice` overlay). Nothing else.
