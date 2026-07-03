@@ -172,6 +172,36 @@ Real face-to-face multiplayer over MultipeerConnectivity. Tested on 2 Simulators
   jitter (accepted — party game). Capture is 8s AFTER the answer (loading screen
   has a countdown ring); real fix later = capture during the answer.
 
+## UI slicing plan (Agung + Marleen)
+
+`GameFlowView.swift` is ONE file (~674 lines, 17 view structs, all `private`).
+Two people editing it at once = merge conflicts. Slice into 3 files so each
+person owns a separate file:
+
+- **`GameFlowView.swift`** — keep ONLY the root `GameFlowView` struct (the
+  `GameState` switch + `leftNotice` overlay). Nothing else.
+- **`LobbyViews.swift`** (Marleen) — `RoomSetupView`, `JoinRoomView`,
+  `RoomLobbyView`, `EditProfileView`, `PlayerBubblesView`, `BubbleView`.
+- **`RoundViews.swift`** (Agung) — `RoleRevealView`, `PushToTalkView`,
+  `AskingView`, `AnsweringView`, `CalibratingView`, `SpectatingView`,
+  `WaitingForResultView`, `LoadingView`, `CalculatingView`, `ResultView`.
+
+Rules:
+- **No `.xcodeproj` edit needed.** Project uses synchronized folders
+  (`objectVersion = 77`) — a new `.swift` file dropped in the `Views/` folder
+  auto-joins the target.
+- **`private` gotcha.** A top-level `private struct` is file-scoped, so it
+  can't be seen from another file. Drop `private` (→ module-internal) on the
+  11 views the root switch instantiates: `RoomSetupView`, `RoomLobbyView`,
+  `RoleRevealView`, `AskingView`, `AnsweringView`, `CalibratingView`,
+  `SpectatingView`, `WaitingForResultView`, `LoadingView`, `CalculatingView`,
+  `ResultView`. Helpers used only inside their own new file (`JoinRoomView`,
+  `EditProfileView`, `PlayerBubblesView`, `BubbleView`, `PushToTalkView`) keep
+  `private`.
+- **Keep the rule:** these files import SwiftUI and read `vm` — they compute
+  nothing. All math/LLM stays in `GameViewModel`/`SusEngine`.
+- Do the cut on a branch off `dev`, one small PR. Ask Pafras if stuck.
+
 ## Team + ownership
 
 - **Pafras** (lead) — SusEngine, ViewModel, integration, async/hardware modules
