@@ -13,7 +13,7 @@
 /* Begin PBXFileReference section */
 		F2B25FFE2FF4DB14002AAAE5 /* Sanscore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sanscore.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2B260052FF4DB15002AAAE5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		F2B2600C2FF4DB15002AAAE5 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Signing.xcconfig; sourceTree = "<group>"; };
+		F2B2600C2FF4DB15002AAAE5 /* Config/Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -51,7 +51,7 @@
 		F2B25FF52FF4DB14002AAAE5 = {
 			isa = PBXGroup;
 			children = (
-				F2B2600C2FF4DB15002AAAE5 /* Signing.xcconfig */,
+				F2B2600C2FF4DB15002AAAE5 /* Config/Signing.xcconfig */,
 				F2B260052FF4DB15002AAAE5 /* Assets.xcassets */,
 				F2B260002FF4DB14002AAAE5 /* Sanscore */,
 				F2B25FFF2FF4DB14002AAAE5 /* Products */,
@@ -270,7 +270,7 @@
 		};
 		F2B2600A2FF4DB15002AAAE5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F2B2600C2FF4DB15002AAAE5 /* Signing.xcconfig */;
+			baseConfigurationReference = F2B2600C2FF4DB15002AAAE5 /* Config/Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -308,7 +308,7 @@
 		};
 		F2B2600B2FF4DB15002AAAE5 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F2B2600C2FF4DB15002AAAE5 /* Signing.xcconfig */;
+			baseConfigurationReference = F2B2600C2FF4DB15002AAAE5 /* Config/Signing.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

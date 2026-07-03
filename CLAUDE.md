@@ -172,40 +172,37 @@ Real face-to-face multiplayer over MultipeerConnectivity. Tested on 2 Simulators
   jitter (accepted — party game). Capture is 8s AFTER the answer (loading screen
   has a countdown ring); real fix later = capture during the answer.
 
-## UI slicing plan (Agung + Marleen)
+## UI slicing (Agung + Marleen) — DONE on branch `chore/slice-ui`
 
-`GameFlowView.swift` is ONE file (~769 lines, 18 view structs, all `private`).
-Two people editing it at once = merge conflicts. Slice into 3 files so each
-person owns a separate file:
+`GameFlowView.swift` was sliced from ONE 769-line file into **one file per
+screen** (matched to Satria's Figma "Suss Meter"). Full brief for the beginners:
+**`HANDOFF-UI.md`** (raw-downloadable). Files live in
+`Sanscore/Sanscore/SanscoreiOS/Views/`:
 
-**Status:** Agung styled the home/welcome screen (`RoomSetupView` — hot pink
-`#FF5BCF`, big rounded/serif titles, `asset-home` imageset + `Design/` PNGs),
-pushed to `dev`. He did NOT slice yet — the file just grew. **Do the slice
-below BEFORE Marleen edits this file**, or she collides with Agung.
+| File | Screen (Figma) | Structs | Owner |
+|------|----------------|---------|-------|
+| `GameFlowView.swift` | root state switch + `CheckeredBackground` | `GameFlowView` | Pafras |
+| `HomePageView.swift` | Homepage (SUSS + JOIN/Create) | `RoomSetupView` | Marleen |
+| `JoinRoomView.swift` | Join Room (code numpad) | `JoinRoomView` | Marleen |
+| `TakePictureView.swift` | Take a Picture (identity) | `EditProfileView` | Agung |
+| `SwipeToEnterView.swift` | Slide to Enter (**new stub**) | `SwipeToEnterView` | Agung + Pafras |
+| `GameRoomView.swift` | Game Room (bubbles, START) | `RoomLobbyView`, `PlayerBubblesView`, `BubbleView` | Agung |
+| `RoundViews.swift` | gameplay (Let's Begin/Who's Next/result) | `RoleReveal`, `PushToTalk`, `Asking`, `Answering`, `Calibrating`, `Spectating`, `WaitingForResult`, `Loading`, `Calculating`, `Result` | Pafras |
 
-- **`GameFlowView.swift`** — keep ONLY the root `GameFlowView` struct (the
-  `GameState` switch + `leftNotice` overlay). Nothing else.
-- **`LobbyViews.swift`** (Marleen) — `RoomSetupView`, `JoinRoomView`,
-  `RoomLobbyView`, `EditProfileView`, `PlayerBubblesView`, `BubbleView`.
-- **`RoundViews.swift`** (Agung) — `RoleRevealView`, `PushToTalkView`,
-  `AskingView`, `AnsweringView`, `CalibratingView`, `SpectatingView`,
-  `WaitingForResultView`, `LoadingView`, `CalculatingView`, `ResultView`.
-
-Rules:
-- **No `.xcodeproj` edit needed.** Project uses synchronized folders
-  (`objectVersion = 77`) — a new `.swift` file dropped in the `Views/` folder
-  auto-joins the target.
-- **`private` gotcha.** A top-level `private struct` is file-scoped, so it
-  can't be seen from another file. Drop `private` (→ module-internal) on the
-  11 views the root switch instantiates: `RoomSetupView`, `RoomLobbyView`,
-  `RoleRevealView`, `AskingView`, `AnsweringView`, `CalibratingView`,
-  `SpectatingView`, `WaitingForResultView`, `LoadingView`, `CalculatingView`,
-  `ResultView`. Helpers used only inside their own new file (`JoinRoomView`,
-  `EditProfileView`, `PlayerBubblesView`, `BubbleView`, `PushToTalkView`) keep
-  `private`.
-- **Keep the rule:** these files import SwiftUI and read `vm` — they compute
-  nothing. All math/LLM stays in `GameViewModel`/`SusEngine`.
-- Do the cut on a branch off `dev`, one small PR. Ask Pafras if stuck.
+Notes:
+- **Struct names unchanged** (e.g. `HomePageView.swift` holds `RoomSetupView`) so
+  the root switch keeps working. Don't rename.
+- **`private` gotcha handled:** 11 root-switch views + 3 cross-file helpers
+  (`JoinRoomView`, `EditProfileView`, `CheckeredBackground`) are module-internal;
+  `PushToTalkView`, `PlayerBubblesView`, `BubbleView` stay `private` (same-file).
+- **No `.xcodeproj` edit** — synchronized folders (`objectVersion = 77`),
+  new `.swift` in `Views/` auto-joins the target.
+- **Flow-reorder is Pafras's:** Figma puts photo + swipe BEFORE the room; today
+  photo is a lobby sheet. New `GameState` cases + `vm` methods = Pafras. Beginners
+  build layout only; `SwipeToEnterView` is a stub awaiting wiring.
+- **Verify before merge:** cut was done off-device (no Xcode in that session).
+  Pafras must `Cmd+B` the branch green, then merge `chore/slice-ui` → `dev`.
+- **Rule stays:** these files import SwiftUI + read `vm`, compute nothing.
 
 ## Team + ownership
 
