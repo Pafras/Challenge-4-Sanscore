@@ -38,10 +38,10 @@ struct IdentityCameraView: View {
     var onClose: () -> Void = {}
 
     @State private var camera = IdentityCamera()
-    @State private var bgIndex = 0
-    @State private var captured: UIImage? = nil     // nil = TAKE, set = ALL-SET
-    @State private var dragY: CGFloat = 0           // ALL-SET: drag photo out
-    @State private var dragX: CGFloat = 0           // TAKE: carousel drag
+    @State private var bgIndex = 0                   // TAKE: centered colour slot (unbounded)
+    @State private var dragX: CGFloat = 0            // TAKE: live horizontal drag
+    @State private var captured: UIImage? = nil      // nil = TAKE, set = ALL-SET
+    @State private var dragY: CGFloat = 0            // ALL-SET: drag photo out
     @State private var thumbBounce = false
 
     private let palette = IdentityPalette.colors
@@ -53,11 +53,12 @@ struct IdentityCameraView: View {
     private var isTake: Bool { captured == nil }
     // Center-to-center spacing so a side option sits `gap` from the camera edge.
     private var step: CGFloat { cameraSize / 2 + gap + optionSize / 2 }
-    // Which colour is centered right now (follows the finger during a drag).
-    private func index(forDrag x: CGFloat) -> Int {
-        min(max(0, bgIndex - Int((x / step).rounded())), palette.count - 1)
+
+    // Nearest colour slot for a given drag, clamped to the palette (finite).
+    private func targetIndex(_ tx: CGFloat) -> Int {
+        min(max(0, bgIndex - Int((tx / step).rounded())), palette.count - 1)
     }
-    private var liveColor: Color { palette[index(forDrag: dragX)] }
+    private var liveColor: Color { palette[targetIndex(dragX)] }
 
     // Drag-down shrink/fade (ALL-SET only).
     private var photoScale: CGFloat { isTake ? 1 : max(0.35, 1 - dragY / 700) }
@@ -82,6 +83,10 @@ struct IdentityCameraView: View {
                         // Colour carousel (TAKE only) — circles slide with the
                         // drag, Instagram-filter style; the centered one is the
                         // background colour. They pass behind the camera circle.
+                        // Window of circles around the center. Each is keyed by
+                        // its ABSOLUTE index v so it keeps identity and slides
+                        // (no snap-to-middle); new v's recycle in at the edges,
+                        // colours wrap → infinite loop, both sides always full.
                         if isTake {
                             ForEach(palette.indices, id: \.self) { i in
                                 optionCircle(palette[i])
@@ -205,15 +210,15 @@ struct IdentityCameraView: View {
         DragGesture(minimumDistance: 5)
             .onChanged { v in
                 if isTake {
-                    dragX = v.translation.width                         // circles follow finger
-                    camera.setBackground(UIColor(palette[index(forDrag: dragX)]))  // bg live
+                    dragX = v.translation.width                          // circles follow finger
+                    camera.setBackground(UIColor(palette[targetIndex(dragX)]))  // bg live
                 } else {
                     dragY = max(0, v.translation.height)
                 }
             }
             .onEnded { v in
                 if isTake {
-                    let target = index(forDrag: v.translation.width)   // snap to nearest
+                    let target = targetIndex(v.translation.width)       // snap to nearest
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                         bgIndex = target
                         dragX = 0
