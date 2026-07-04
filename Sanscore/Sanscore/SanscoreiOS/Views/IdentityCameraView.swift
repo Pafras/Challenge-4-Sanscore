@@ -42,7 +42,20 @@ struct IdentityCameraView: View {
     @State private var dragX: CGFloat = 0            // TAKE: live horizontal drag
     @State private var captured: UIImage? = nil      // nil = TAKE, set = ALL-SET
     @State private var dragY: CGFloat = 0            // ALL-SET: drag photo out
-    @State private var thumbBounce = false
+
+    // Pass previewCaptured (a photo) to open straight in the ALL-SET / Slide-to-
+    // enter state — used by #Preview so you don't have to tap the shutter first.
+    init(initialIndex: Int = 0,
+         previewCaptured: UIImage? = nil,
+         onCapture: @escaping (UIImage) -> Void,
+         onEnter: @escaping () -> Void = {},
+         onClose: @escaping () -> Void = {}) {
+        self.initialIndex = initialIndex
+        self.onCapture = onCapture
+        self.onEnter = onEnter
+        self.onClose = onClose
+        _captured = State(initialValue: previewCaptured)
+    }
 
     private let palette = IdentityPalette.colors
     private let cameraSize: CGFloat = 275
@@ -66,70 +79,106 @@ struct IdentityCameraView: View {
 
     var body: some View {
         ZStack {
-            // Background crossfade (gradients now; swap for images later).
-            IdentityGradient.bright.opacity(isTake ? 1 : 0).ignoresSafeArea()
-            IdentityGradient.dark.opacity(isTake ? 0 : 1).ignoresSafeArea()
-            CheckeredBackground().ignoresSafeArea()
+            if !isTake {
+                VStack {
+                    Spacer()
+                    ThumbSwipe()
+                        .frame(width: 220, height: 200)
+                        .offset(x: 24)          // nudge right
+                }
+                .allowsHitTesting(false)
+                .transition(.opacity)          // fade in/out, don't pop
+            }
 
-            VStack(spacing: 0) {
-                Spacer()
+            if !isTake {   // glow only on Slide-to-enter, not Take-a-picture
+                GeometryReader { geo in
+                    Ellipse()
+                        .fill(Color(hex: "01E0FF"))
+                        .frame(width: 500, height: 350)
+                        .blur(radius: 70)
+                        .position(x: geo.size.width / 2, y: geo.size.height * 1.09)
+                }
+                .allowsHitTesting(false)
+                .transition(.opacity)
+            }
 
-                VStack(spacing: 40) {
-                    IdentityTitle(text: isTake ? "MAKE YOUR\nIDENTITY" : "YOU'RE\nALL SET!!")
+            VStack(spacing: 24) {
+                // TOP half — title hugs the bottom, so it sits a gap ABOVE the
+                // circle. Equal flexible height with the bottom half keeps the
+                // circle pinned to screen center in BOTH states.
+                VStack {
+                    Spacer()
+                    IdentityTitle(text: isTake ? "TAKE YOUR\nPICTURE" : "YOU'RE\nALL SET!!", tilt: isTake ? 3:-3)
+                }
+                .frame(maxHeight: .infinity)
 
-                    // Camera row: circle fixed in the middle; templates peek in
-                    // TAKE state only.
-                    ZStack {
-                        // Colour carousel (TAKE only) — circles slide with the
-                        // drag, Instagram-filter style; the centered one is the
-                        // background colour. They pass behind the camera circle.
-                        // Window of circles around the center. Each is keyed by
-                        // its ABSOLUTE index v so it keeps identity and slides
-                        // (no snap-to-middle); new v's recycle in at the edges,
-                        // colours wrap → infinite loop, both sides always full.
-                        if isTake {
-                            ForEach(palette.indices, id: \.self) { i in
-                                optionCircle(palette[i])
-                                    .offset(x: CGFloat(i - bgIndex) * step + dragX)
-                            }
+                // Camera circle = the fixed pivot (never moves between states).
+                ZStack {
+                    if isTake {
+                        ForEach(palette.indices, id: \.self) { i in
+                            optionCircle(palette[i])
+                                .offset(x: CGFloat(i - bgIndex) * step + dragX)
                         }
-                        circle
-                            .overlay(alignment: .bottomTrailing) {
-                                if !isTake { retakeBadge.offset(x: 6, y: 6) }
-                            }
-                            .scaleEffect(photoScale)
-                            .offset(y: dragY)
-                            .opacity(photoOpacity)
                     }
-                    .contentShape(Rectangle())
-                    .gesture(rowGesture)
+                    circle
+                        .overlay(alignment: .bottomTrailing) {
+                            if !isTake { retakeBadge.offset(x: 6, y: 6) }
+                        }
+                        .scaleEffect(photoScale)
+                        .offset(y: dragY)
+                        .opacity(photoOpacity)
+                }
+                .contentShape(Rectangle())
+                .gesture(rowGesture)
 
+                // BOTTOM half — content changes per state; circle stays centered.
+                // TAKE: caption hugs the top (just below circle).
+                // ALL-SET: swipe hint drops to the bottom (near the thumb).
+                VStack {
                     if isTake {
                         Text("Take a photo as your\ndisplay picture for identity")
                             .font(.system(size: 17, weight: .semibold))   // SF Pro
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.white)
                             .transition(.opacity)
+                        Spacer()
                     } else {
+                        Spacer()
                         swipeDownHint.transition(.opacity)
                     }
                 }
+                .frame(maxHeight: .infinity)
+            }
 
-                Spacer()
-
-                if isTake {
-                    // Shutter — Liquid Glass, 104×104.
+            // Shutter on its OWN bottom-pinned layer (TAKE only) so the content
+            // above stays vertically centered, independent of the button.
+            if isTake {
+                VStack {
+                    Spacer()
                     Button(action: capture) {
                         Image(systemName: "camera.fill")
                             .font(.system(size: 40, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 104, height: 104)
                     }
-                    .glassEffect(.regular.interactive(), in: Circle())
-                    .transition(.opacity)
+                    .glassButton()
                 }
+                .transition(.opacity)
             }
-            .padding(.bottom, 56)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)   // fill screen (else shrinks to content)
+        // Background bleeds edge-to-edge; foreground keeps its safe area.
+        // TAKE = bright "Default" bg, ALL-SET = dark "Set" bg.
+        .background {
+            ZStack {   // crossfade the two bgs instead of swapping instantly
+                Image("Setup Profile-Default").resizable().scaledToFill()
+                    .opacity(isTake ? 1 : 0)
+                Image("Setup Profile-Set").resizable().scaledToFill()
+                    .opacity(isTake ? 0 : 1)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+            .ignoresSafeArea()
         }
         .overlay(alignment: .topLeading) {
             Button(action: onClose) {
@@ -138,7 +187,7 @@ struct IdentityCameraView: View {
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
             }
-            .glassEffect(.regular.interactive(), in: Circle())
+            .glassButton()
             .padding(.leading, 16)
             .padding(.top, 8)
         }
@@ -147,7 +196,6 @@ struct IdentityCameraView: View {
             camera.setBackground(UIColor(palette[bgIndex]))
             await camera.start()
         }
-        .onAppear { thumbBounce = true }
         .onDisappear { camera.stop() }
     }
 
@@ -184,22 +232,18 @@ struct IdentityCameraView: View {
                 .foregroundStyle(.white)
                 .frame(width: 52, height: 52)
         }
-        .glassEffect(.regular.interactive(), in: Circle())
+        .glassButton()
     }
 
     private var swipeDownHint: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             Text("Swipe Down")
-                .font(.system(size: 15, weight: .semibold))   // SF Pro
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(.white)
-            // TODO(satria): replace with the real hand line-art (Component 1).
-            Image(systemName: "chevron.compact.down")
-                .font(.system(size: 34, weight: .bold))
-                .foregroundStyle(.white.opacity(0.9))
-                .offset(y: thumbBounce ? 8 : -2)
-                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true),
-                           value: thumbBounce)
-        }
+            Image(systemName: "chevron.down.2")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white)
+        }.shadow(radius: 3)
         .opacity(photoOpacity)
     }
 
@@ -238,7 +282,7 @@ struct IdentityCameraView: View {
         // (Simulator / #Preview / warming up) so the flow is always testable.
         let shot = camera.latestFrame ?? placeholderImage()
         onCapture(shot)                                   // save avatar
-        withAnimation(.easeInOut(duration: 0.35)) { captured = shot }   // morph in place
+        withAnimation(.bouncy(duration: 0.35, extraBounce: 0.12)) { captured = shot }   // fast, little bounce
     }
 
     private func placeholderImage() -> UIImage {
@@ -250,7 +294,7 @@ struct IdentityCameraView: View {
     }
 
     private func retake() {
-        withAnimation(.easeInOut(duration: 0.3)) { captured = nil; dragY = 0 }
+        withAnimation(.bouncy(duration: 0.35, extraBounce: 0.12)) { captured = nil; dragY = 0 }
     }
 }
 
@@ -369,7 +413,101 @@ final class IdentityCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelega
     }
 }
 
-#Preview {
+// MARK: - Thumb swipe hint (Satria's Component 1, native — no Lottie)
+
+/// The line-art thumb that morphs flat → flicked-up and back, forever.
+/// Same shape data as the Lottie (`thumb-swipe-up.json`), drawn natively so the
+/// app needs no external animation library.
+struct ThumbSwipe: View {
+    var body: some View {
+        // progress 1 = pose up, 0 = pose down. Loop: hold up → swipe down →
+        // hold down → back up. KeyframeAnimator repeats forever by default.
+        KeyframeAnimator(initialValue: 1.0) { p in
+            ThumbSwipeShape(progress: p)
+                .stroke(.white, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+        } keyframes: { _ in
+            // No static pauses — slow over-drifts instead (shape extrapolates
+            // past the pose, so it keeps drifting gently, never looks frozen).
+            CubicKeyframe(1.08,  duration: 0.9)    // drift a bit FURTHER up (slow, longest)
+            CubicKeyframe(0.0,   duration: 0.45)   // swipe down
+            CubicKeyframe(-0.08, duration: 0.5)    // drift a bit FURTHER down (slow)
+            CubicKeyframe(1.0,   duration: 0.6)    // back to original (up), then loop
+        }
+    }
+}
+
+/// Morphs the finger + nail outlines between the two Figma poses. `progress`
+/// 0→1 lerps every vertex/tangent (poses have matching point counts). Drawn in
+/// the 138×152 Figma coordinate space, scaled to fit.
+struct ThumbSwipeShape: Shape {
+    var progress: CGFloat
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    // Finger (open path, 8 pts) — pose 1 (flat) / pose 2 (up).
+    private static let fV1: [CGPoint] = [.init(x:128.129,y:148.622),.init(x:89.6598,y:130.118),.init(x:29.5407,y:110.026),.init(x:4.0025,y:78.9607),.init(x:42.8777,y:69.4228),.init(x:69.3791,y:74.612),.init(x:112.08,y:85.3315),.init(x:130.834,y:83.7398)]
+    private static let fO1: [CGPoint] = [.init(x:-7.063,y:-4.417),.init(x:-17.282,y:-5.252),.init(x:-18.433,y:-7.034),.init(x:6.087,y:-14.034),.init(x:17.319,y:2.703),.init(x:6.738,y:1.961),.init(x:14.275,y:0.207),.init(x:0,y:0)]
+    private static let fI1: [CGPoint] = [.init(x:0,y:0),.init(x:13.825,y:4.202),.init(x:18.433,y:7.034),.init(x:-6.087,y:14.034),.init(x:-17.319,y:-2.703),.init(x:-6.738,y:-1.961),.init(x:-17.845,y:-0.259),.init(x:-0.303,y:0.617)]
+    private static let fV2: [CGPoint] = [.init(x:94.9999,y:123.949),.init(x:76.4999,y:97.4494),.init(x:35.9999,y:54.9494),.init(x:28.5,y:2.94926),.init(x:59,y:21.4493),.init(x:84,y:42.4494),.init(x:117.5,y:68.4494),.init(x:135.5,y:78.4494)]
+    private static let fO2: [CGPoint] = [.init(x:-5.5,y:-14.0),.init(x:-15.0,y:-20.5),.init(x:-11.858,y:-15.768),.init(x:12.625,y:-8.638),.init(x:12.395,y:12.395),.init(x:4.66,y:5.248),.init(x:11.974,y:7.776),.init(x:0,y:0)]
+    private static let fI2: [CGPoint] = [.init(x:0,y:0),.init(x:8.533,y:11.662),.init(x:11.858,y:15.768),.init(x:-12.625,y:8.638),.init(x:-11.0,y:-11.0),.init(x:-4.66,y:-5.248),.init(x:-14.967,y:-9.72),.init(x:-0.585,y:0.361)]
+
+    // Nail (closed path, 6 pts).
+    private static let nV1: [CGPoint] = [.init(x:50.091,y:98.3995),.init(x:54.1105,y:85.4575),.init(x:41.0473,y:75.8708),.init(x:16.4281,y:72.9948),.init(x:8.3892,y:90.2508),.init(x:37.0278,y:108.945)]
+    private static let nO1: [CGPoint] = [.init(x:3.2155,y:-6.1355),.init(x:-0.4938,y:-3.3553),.init(x:-8.0389,y:-2.3966),.init(x:-3.517,y:0.4794),.init(x:1.00486,y:9.1073),.init(x:11.0534,y:3.355)]
+    private static let nI1: [CGPoint] = [.init(x:-4.0195,y:7.6695),.init(x:0.6699,y:1.2782),.init(x:8.0388,y:2.3967),.init(x:3.517,y:-0.4793),.init(x:-1.00486,y:-9.1073),.init(x:-11.0535,y:-3.356)]
+    private static let nV2: [CGPoint] = [.init(x:55.5,y:38.9524),.init(x:63.5,y:31.9523),.init(x:58.4999,y:24.9523),.init(x:42.7632,y:6.9618),.init(x:31.5,y:6.96181),.init(x:39,y:31.9523)]
+    private static let nO2: [CGPoint] = [.init(x:0,y:0),.init(x:1.3169,y:-1.9103),.init(x:-4.5003,y:-6.0),.init(x:-2.641,y:-2.34512),.init(x:-3.8036,y:4.94059),.init(x:5.9029,y:9.6164)]
+    private static let nI2: [CGPoint] = [.init(x:0,y:0),.init(x:-1.3168,y:1.9104),.init(x:4.5002,y:6.0001),.init(x:2.6409,y:2.34512),.init(x:3.8036,y:-4.94058),.init(x:-5.903,y:-9.6163)]
+
+    func path(in rect: CGRect) -> Path {
+        let s = min(rect.width / 138, rect.height / 152)
+        let ox = (rect.width - 138 * s) / 2
+        let oy = (rect.height - 152 * s) / 2
+        func tf(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x * s + ox, y: p.y * s + oy) }
+
+        var path = Path()
+        addMorph(&path, Self.fV1, Self.fO1, Self.fI1, Self.fV2, Self.fO2, Self.fI2, closed: false, tf)
+        addMorph(&path, Self.nV1, Self.nO1, Self.nI1, Self.nV2, Self.nO2, Self.nI2, closed: true, tf)
+        return path
+    }
+
+    private func addMorph(_ path: inout Path,
+                          _ v1: [CGPoint], _ o1: [CGPoint], _ i1: [CGPoint],
+                          _ v2: [CGPoint], _ o2: [CGPoint], _ i2: [CGPoint],
+                          closed: Bool, _ tf: (CGPoint) -> CGPoint) {
+        let t = progress
+        func mix(_ a: CGPoint, _ b: CGPoint) -> CGPoint {
+            CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+        }
+        let n = v1.count
+        func v(_ k: Int) -> CGPoint { mix(v1[k], v2[k]) }
+        func outCtrl(_ k: Int) -> CGPoint { let base = v(k); let r = mix(o1[k], o2[k]); return CGPoint(x: base.x + r.x, y: base.y + r.y) }
+        func inCtrl(_ k: Int) -> CGPoint { let base = v(k); let r = mix(i1[k], i2[k]); return CGPoint(x: base.x + r.x, y: base.y + r.y) }
+
+        path.move(to: tf(v(0)))
+        for k in 0..<(n - 1) {
+            path.addCurve(to: tf(v(k + 1)), control1: tf(outCtrl(k)), control2: tf(inCtrl(k + 1)))
+        }
+        if closed {
+            path.addCurve(to: tf(v(0)), control1: tf(outCtrl(n - 1)), control2: tf(inCtrl(0)))
+            path.closeSubpath()
+        }
+    }
+}
+
+#Preview("Take a picture") {
     IdentityCameraView(onCapture: { _ in })
+}
+
+#Preview("Slide to enter") {
+    // Seed a photo so it opens straight in the ALL-SET state (thumb animates).
+    let photo = UIGraphicsImageRenderer(size: .init(width: 220, height: 220)).image { ctx in
+        UIColor(red: 1, green: 0.42, blue: 0.42, alpha: 1).setFill()
+        ctx.fill(CGRect(x: 0, y: 0, width: 220, height: 220))
+    }
+    return IdentityCameraView(previewCaptured: photo, onCapture: { _ in })
 }
 #endif

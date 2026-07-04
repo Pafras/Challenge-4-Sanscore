@@ -108,4 +108,8 @@ struct SwipeToEnterView: View {
 #Preview("Identity flow (demo)") {
     IdentityFlowDemo()
 }
+#Preview("Swipe to Enter") {
+    SwipeToEnterView()
+}
+
 #endif

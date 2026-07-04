@@ -22,6 +22,8 @@
 
 import SwiftUI
 #if os(iOS)
+import UIKit
+import CoreText
 
 // The whole identity screen (Take a picture → You're all set) is now the ONE
 // morphing IdentityCameraView. EditProfileView is a thin wrapper so the existing
@@ -46,6 +48,26 @@ struct EditProfileView: View {
 /// The colour palette you can swipe through (coral is the Figma default; the
 /// rest echo the game-room bubble colours). Marleen will swap these for real
 /// background images later.
+extension View {
+    /// One Liquid-Glass button style for the whole app. A slight dark tint keeps
+    /// the white icon readable on ANY backdrop (glass already adapts to bg
+    /// luminance; the tint just guarantees icon contrast) — no light/dark code.
+    func glassButton() -> some View {
+        glassEffect(.regular.tint(.black.opacity(0.18)).interactive(), in: Circle())
+    }
+}
+
+extension Color {
+    /// Make a Color from a hex string like "01E0FF" or "#01E0FF".
+    init(hex: String) {
+        let h = hex.trimmingCharacters(in: .alphanumerics.inverted)
+        let v = UInt64(h, radix: 16) ?? 0
+        self.init(red:   Double((v >> 16) & 0xFF) / 255,
+                  green: Double((v >> 8)  & 0xFF) / 255,
+                  blue:  Double( v        & 0xFF) / 255)
+    }
+}
+
 enum IdentityPalette {
     static let colors: [Color] = [
         Color(red: 1.0,  green: 0.42, blue: 0.42),  // coral / red (default)
@@ -101,32 +123,131 @@ enum IdentityGradient {
         startPoint: .top, endPoint: .bottom)
 }
 
-/// The Figma title: SF Pro Expanded heavy, white fill with a white-20% stroke
-/// outline. SwiftUI has no native text stroke, so we draw the text 8 times
-/// offset behind the fill — the classic outline trick. No drop shadow.
+/// The Figma title: SF Pro Expanded heavy, coloured fill with a REAL white
+/// stroke around the letters (sharp miter corners, no ghost). Uses Core Text to
+/// build the glyph path, then strokes + fills it in a UIView.
 struct IdentityTitle: View {
     let text: String
     var size: CGFloat = 40
-    var strokeWidth: CGFloat = 2
-
-    private static let offsets: [(CGFloat, CGFloat)] =
-        [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
-
-    private var base: some View {
-        Text(text)
-            .font(.system(size: size, weight: .black))
-            .fontWidth(.expanded)                 // SF Pro Expanded
-            .multilineTextAlignment(.center)
-    }
+    var strokeWidth: CGFloat = 5                 // white outline thickness (points OUTSIDE)
+    var fill: Color = Color(hex: "DD30A4")       // pink fill
+    var tilt: Double                     // degrees; negative = tilt up-right
+    var lineHeightMultiple: CGFloat = 0.9        // <1 = tighter lines
 
     var body: some View {
-        ZStack {
-            ForEach(Array(Self.offsets.enumerated()), id: \.offset) { _, o in
-                base.foregroundStyle(.white.opacity(0.2))    // stroke, white 20%
-                    .offset(x: o.0 * strokeWidth, y: o.1 * strokeWidth)
+        StrokeTextLabel(text: text, fontSize: size, strokeWidth: strokeWidth,
+                        fill: UIColor(fill), stroke: .white,
+                        lineHeightMultiple: lineHeightMultiple)
+            .fixedSize()                          // size to the glyphs
+            .rotationEffect(.degrees(tilt))
+    }
+}
+
+/// SwiftUI bridge to the Core Text stroking view.
+private struct StrokeTextLabel: UIViewRepresentable {
+    var text: String
+    var fontSize: CGFloat
+    var strokeWidth: CGFloat
+    var fill: UIColor
+    var stroke: UIColor
+    var lineHeightMultiple: CGFloat
+
+    func makeUIView(context: Context) -> StrokeTextUIView { StrokeTextUIView() }
+    func updateUIView(_ v: StrokeTextUIView, context: Context) {
+        v.configure(text: text, fontSize: fontSize, strokeWidth: strokeWidth,
+                    fill: fill, stroke: stroke, lineHeightMultiple: lineHeightMultiple)
+    }
+}
+
+/// Builds the multiline glyph outline (Core Text) and draws stroke-then-fill so
+/// the outline sits OUTSIDE the letters with sharp miter joins.
+final class StrokeTextUIView: UIView {
+    private var glyphPath = CGMutablePath()
+    private var fillColor: UIColor = .white
+    private var strokeColor: UIColor = .white
+    private var strokeW: CGFloat = 0
+    private var contentSize: CGSize = .zero
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        isOpaque = false
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var intrinsicContentSize: CGSize { contentSize }
+
+    func configure(text: String, fontSize: CGFloat, strokeWidth: CGFloat,
+                   fill: UIColor, stroke: UIColor, lineHeightMultiple: CGFloat) {
+        fillColor = fill; strokeColor = stroke; strokeW = strokeWidth
+
+        let font = UIFont.systemFont(ofSize: fontSize, weight: .black, width: .expanded)
+        let para = NSMutableParagraphStyle()
+        para.alignment = .center
+        para.lineHeightMultiple = lineHeightMultiple
+        let attr = NSAttributedString(string: text,
+                                      attributes: [.font: font, .paragraphStyle: para])
+
+        let framesetter = CTFramesetterCreateWithAttributedString(attr)
+        let measured = CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter, CFRange(location: 0, length: 0), nil,
+            CGSize(width: 2000, height: CGFloat.greatestFiniteMagnitude), nil)
+        let bounds = CGRect(x: 0, y: 0, width: ceil(measured.width), height: ceil(measured.height))
+        let ctFrame = CTFramesetterCreateFrame(
+            framesetter, CFRange(location: 0, length: 0),
+            CGPath(rect: bounds, transform: nil), nil)
+
+        let lines = CTFrameGetLines(ctFrame) as! [CTLine]
+        var origins = [CGPoint](repeating: .zero, count: lines.count)
+        CTFrameGetLineOrigins(ctFrame, CFRange(location: 0, length: 0), &origins)
+
+        let path = CGMutablePath()
+        for (i, line) in lines.enumerated() {
+            let lineOrigin = origins[i]
+            for run in CTLineGetGlyphRuns(line) as! [CTRun] {
+                let attrs = CTRunGetAttributes(run) as NSDictionary
+                let runFont = attrs[kCTFontAttributeName as String] as! CTFont
+                let count = CTRunGetGlyphCount(run)
+                var glyphs = [CGGlyph](repeating: 0, count: count)
+                var positions = [CGPoint](repeating: .zero, count: count)
+                CTRunGetGlyphs(run, CFRange(location: 0, length: count), &glyphs)
+                CTRunGetPositions(run, CFRange(location: 0, length: count), &positions)
+                for j in 0..<count {
+                    guard let gp = CTFontCreatePathForGlyph(runFont, glyphs[j], nil) else { continue }
+                    let t = CGAffineTransform(translationX: lineOrigin.x + positions[j].x,
+                                              y: lineOrigin.y + positions[j].y)
+                    path.addPath(gp, transform: t)
+                }
             }
-            base.foregroundStyle(.white)                       // fill
         }
+        // Core Text is y-up; flip into UIKit y-down space.
+        var flip = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: bounds.height)
+        glyphPath = CGMutablePath()
+        if let flipped = path.copy(using: &flip) { glyphPath.addPath(flipped) }
+
+        contentSize = CGSize(width: bounds.width + strokeWidth * 2,
+                             height: bounds.height + strokeWidth * 2)
+        invalidateIntrinsicContentSize()
+        setNeedsDisplay()
+    }
+
+    override func draw(_ rect: CGRect) {
+        guard let ctx = UIGraphicsGetCurrentContext(), !glyphPath.isEmpty else { return }
+        let b = glyphPath.boundingBoxOfPath
+        ctx.saveGState()
+        ctx.translateBy(x: (bounds.width - b.width) / 2 - b.minX,
+                        y: (bounds.height - b.height) / 2 - b.minY)
+        // Stroke first (2× width → half shows outside), fill on top.
+        ctx.addPath(glyphPath)
+        ctx.setLineWidth(strokeW * 2)
+        ctx.setStrokeColor(strokeColor.cgColor)
+        ctx.setLineJoin(.miter)
+        ctx.setMiterLimit(10)
+        ctx.strokePath()
+        ctx.addPath(glyphPath)
+        ctx.setFillColor(fillColor.cgColor)
+        ctx.fillPath()
+        ctx.restoreGState()
     }
 }
 

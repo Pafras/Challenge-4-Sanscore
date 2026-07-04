@@ -17,71 +17,98 @@ struct RoomLobbyView: View {
     @State private var showEditProfile = false
     @State private var showLeaveConfirm = false
 
+    private var roomPill: some View {
+        VStack(spacing: 0) {
+            Text("ROOM").font(.system(size: 12, weight: .bold)).tracking(2)
+                .foregroundStyle(.white.opacity(0.85))
+            Text(vm.room.roomCode).font(.system(size: 30, weight: .black)).fontWidth(.expanded)
+                .foregroundStyle(.white)
+        }
+        .padding(.horizontal, 24).padding(.vertical, 8)
+        .background(Capsule().fill(.white.opacity(0.08)))
+        .overlay(Capsule().stroke(.white.opacity(0.4), lineWidth: 2))
+    }
+
+    private var countBadge: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "person.2.fill")
+            Text("\(vm.room.players.count)")
+        }
+        .font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Capsule().fill(.white.opacity(0.08)))
+        .overlay(Capsule().stroke(.white.opacity(0.4), lineWidth: 2))
+    }
+
     var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Button {
-                    showLeaveConfirm = true
-                } label: {
-                    Label("Leave", systemImage: "chevron.left")
+        ZStack {
+            // Dark "box of balls" room.
+            Color.black.ignoresSafeArea()
+            CheckeredBackground().ignoresSafeArea()
+
+            // Player avatars as physics balls (fall from top, bounce, tilt/shake).
+            #if os(iOS)
+            PlayerBubblesPhysics(players: vm.room.players, avatars: vm.avatars,
+                                 me: vm.myName) { showEditProfile = true }
+                .ignoresSafeArea()
+            #endif
+
+            VStack(spacing: 12) {
+                // Top bar: close (X) · ROOM code pill · player count.
+                HStack(alignment: .center) {
+                    Button { showLeaveConfirm = true } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(.white.opacity(0.18)))
+                    }
+                    Spacer()
+                    roomPill
+                    Spacer()
+                    countBadge
                 }
+
+                if let alert = vm.roomAlert {
+                    Label(alert, systemImage: "info.circle.fill")
+                        .font(.footnote).foregroundStyle(.orange)
+                        .multilineTextAlignment(.center)
+                }
+
                 Spacer()
-            }
-            Text("Room ready")
-                .font(.title2.bold())
-            if let alert = vm.roomAlert {
-                Label(alert, systemImage: "info.circle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.orange)
-                    .multilineTextAlignment(.center)
-            }
-            if vm.room.isHost {
-                VStack(spacing: 2) {
-                    Text("Room code")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(vm.room.roomCode)
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .monospacedDigit()
+
+                // Host CTA = START; player CTA = wait + loading bars.
+                if vm.room.isHost {
+                    Button { vm.start() } label: {
+                        Text("START")
+                            .font(.system(size: 26, weight: .black)).fontWidth(.expanded)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                            .background(Capsule().fill(.white.opacity(0.14)))
+                            .overlay(Capsule().stroke(.white.opacity(0.5), lineWidth: 2))
+                    }
+                } else {
+                    VStack(spacing: 12) {
+                        Text("Waiting for host to start the game")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(.white)
+                        LoadingBars()
+                    }
+                    .padding(.bottom, 8)
                 }
-            }
 
-            // Players float as bubbles (avatar or initials). Tap your own to
-            // edit your photo + name.
-            PlayerBubblesView(players: vm.room.players, avatars: vm.avatars,
-                              displayNames: vm.displayNames, me: vm.myName) { showEditProfile = true }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            Text("Tap your bubble to edit your photo and name")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            // Host starts; joiners wait for the host's turn assignment.
-            if vm.room.isHost {
-                Button(vm.room.connectedPeers.isEmpty ? "Start (solo)" : "Start") { vm.start() }
-                    .buttonStyle(.borderedProminent)
-            } else {
-                Text("Waiting for the host to start…")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            #if DEBUG
-            VStack(spacing: 8) {
-                Text("Dev: force role (solo screen test)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                #if DEBUG
                 HStack(spacing: 8) {
                     Button("Asker") { vm.forceRole(.asker) }
                     Button("Answerer") { vm.forceRole(.answerer) }
                     Button("Spectator") { vm.forceRole(.spectator) }
                 }
-                .buttonStyle(.bordered)
-                .font(.caption)
+                .buttonStyle(.bordered).font(.caption).tint(.white)
+                #endif
             }
-            .padding(.top, 8)
-            #endif
+            .padding()
         }
-        .padding()
         .confirmationDialog(
             vm.room.isHost ? "Close the room?" : "Leave the room?",
             isPresented: $showLeaveConfirm, titleVisibility: .visible
