@@ -9,6 +9,7 @@
 import SwiftUI
 #if os(iOS)
 import MultipeerConnectivity
+import UIKit
 
 struct JoinRoomView2: View {
     let vm: GameViewModel
@@ -37,6 +38,7 @@ struct JoinRoomView2: View {
                             Button {
                                 selected = host
                                 resetCode()
+                                vm.joinError = nil   // fresh card, no stale warning
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     showCodeEntry = true
                                 }
@@ -135,6 +137,14 @@ struct JoinRoomView2: View {
             }
             .padding(.horizontal, 24)
 
+            // Wrong-code warning. Stays on the card; user retypes.
+            if let err = vm.joinError {
+                Label(err, systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote.bold())
+                    .foregroundStyle(.yellow)
+                    .padding(.horizontal, 24)
+            }
+
             numpadView
                 .padding(.horizontal, 16)
                 .padding(.bottom, 20)
@@ -145,6 +155,13 @@ struct JoinRoomView2: View {
         )
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
+        // A failed code buzzes + clears the boxes so the player can retype.
+        .onChange(of: vm.joinError) { _, err in
+            if err != nil {
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                resetCode()
+            }
+        }
     }
 
     // MARK: - Numpad
@@ -193,6 +210,7 @@ struct JoinRoomView2: View {
     // MARK: - Input Logic
 
     private func handleKey(_ key: String) {
+        vm.joinError = nil   // clear any previous warning as they retype
         if key == "⌫" {
             if focusIndex > 0 && digits[focusIndex].isEmpty {
                 focusIndex -= 1
@@ -205,11 +223,11 @@ struct JoinRoomView2: View {
             } else {
                 let fullCode = digits.joined()
                 if fullCode.count == 4, let host = selected {
+                    // Invite but STAY on the card. Correct code -> we connect and
+                    // the view switches to the identity screen. Wrong code ->
+                    // vm.joinError fills in and the digits reset for a retry
+                    // (see .onChange in codeEntryCard). Don't close the card here.
                     vm.join(host, code: fullCode)
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showCodeEntry = false
-                    }
-                    selected = nil
                 }
             }
         }
