@@ -1,6 +1,7 @@
 // JoinRoomView2.swift
-// Screen 2b — Room list. Shows "JOINNN ROOOOM" header + discovered nearby
-// rooms as buttons. Tapping a room prompts for the 4-digit code, then joins.
+// Screen 2b — Room list + code entry. Shows "JOINNN ROOOOM" header + discovered
+// nearby rooms as buttons. Tapping a room slides up an inline code-entry card
+// (4-digit numpad) instead of a system alert.
 //
 // OWNER: Agung. Style to Figma. LAYOUT ONLY — call existing vm methods, never
 // edit GameViewModel. See HANDOFF-UI.md.
@@ -11,9 +12,11 @@ import MultipeerConnectivity
 
 struct JoinRoomView2: View {
     let vm: GameViewModel
-    @Environment(\.dismiss) private var dismiss
+    let dismissAll: () -> Void
     @State private var selected: MCPeerID?
-    @State private var code = ""
+    @State private var showCodeEntry = false
+    @State private var digits: [String] = ["", "", "", ""]
+    @State private var focusIndex = 0
 
     var body: some View {
         ZStack {
@@ -22,19 +25,21 @@ struct JoinRoomView2: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 16) {
-                // "JOINNN ROOOOM" header
                 Image("join-room")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 340)
                     .padding(.top, 20)
 
-                // Room list
                 ScrollView {
                     VStack(spacing: 12) {
                         ForEach(vm.room.foundRooms, id: \.self) { host in
                             Button {
                                 selected = host
+                                resetCode()
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showCodeEntry = true
+                                }
                             } label: {
                                 Text(vm.room.roomNames[host] ?? host.displayName)
                                     .font(.system(size: 22, weight: .bold))
@@ -52,13 +57,32 @@ struct JoinRoomView2: View {
 
                 Spacer()
             }
+
+            // Code entry overlay
+            if showCodeEntry {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showCodeEntry = false
+                        }
+                        selected = nil
+                    }
+
+                VStack {
+                    Spacer()
+                    codeEntryCard
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button {
                     vm.room.stopBrowsing()
-                    dismiss()
+                    dismissAll()
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.title2.weight(.semibold))
@@ -66,21 +90,140 @@ struct JoinRoomView2: View {
                 }
             }
         }
-        .alert("Enter room code", isPresented: .constant(selected != nil)) {
-            TextField("4-digit code", text: $code)
-                .keyboardType(.numberPad)
-            Button("Join") {
-                if let host = selected { vm.join(host, code: code) }
-                code = ""; selected = nil
+    }
+
+    // MARK: - Code Entry Card
+
+    private var codeEntryCard: some View {
+        VStack(spacing: 14) {
+            Capsule()
+                .fill(.white.opacity(0.4))
+                .frame(width: 40, height: 5)
+                .padding(.top, 12)
+
+            Image("enter-code")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 260)
+
+            // 4 digit boxes
+            HStack(spacing: 12) {
+                ForEach(0..<4, id: \.self) { i in
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(.white.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .strokeBorder(
+                                        .white.opacity(i == focusIndex ? 0.6 : 0.2),
+                                        lineWidth: 2
+                                    )
+                            )
+
+                        if digits[i].isEmpty && i == focusIndex {
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(.white)
+                                .frame(width: 2, height: 30)
+                        } else {
+                            Text(digits[i])
+                                .font(.system(size: 36, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .frame(width: 65, height: 72)
+                }
             }
-            Button("Cancel", role: .cancel) { code = ""; selected = nil }
+            .padding(.horizontal, 24)
+
+            numpadView
+                .padding(.horizontal, 16)
+                .padding(.bottom, 20)
         }
+        .background(
+            .ultraThinMaterial,
+            in: RoundedRectangle(cornerRadius: 24)
+        )
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - Numpad
+
+    private var numpadView: some View {
+        let rows: [[String]] = [
+            ["1", "2", "3"],
+            ["4", "5", "6"],
+            ["7", "8", "9"],
+            ["", "0", "⌫"]
+        ]
+        return VStack(spacing: 8) {
+            ForEach(rows, id: \.self) { row in
+                HStack(spacing: 8) {
+                    ForEach(row, id: \.self) { key in
+                        if key.isEmpty {
+                            Color.clear.frame(height: 50)
+                        } else {
+                            Button {
+                                handleKey(key)
+                            } label: {
+                                Group {
+                                    if key == "⌫" {
+                                        Image(systemName: "delete.backward")
+                                            .font(.title2.weight(.semibold))
+                                    } else {
+                                        Text(key)
+                                            .font(.system(size: 24, weight: .semibold))
+                                    }
+                                }
+                                .foregroundStyle(.primary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
+                                .background(
+                                    .white.opacity(0.85),
+                                    in: RoundedRectangle(cornerRadius: 12)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Input Logic
+
+    private func handleKey(_ key: String) {
+        if key == "⌫" {
+            if focusIndex > 0 && digits[focusIndex].isEmpty {
+                focusIndex -= 1
+            }
+            digits[focusIndex] = ""
+        } else {
+            digits[focusIndex] = key
+            if focusIndex < 3 {
+                focusIndex += 1
+            } else {
+                let fullCode = digits.joined()
+                if fullCode.count == 4, let host = selected {
+                    vm.join(host, code: fullCode)
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showCodeEntry = false
+                    }
+                    selected = nil
+                }
+            }
+        }
+    }
+
+    private func resetCode() {
+        digits = ["", "", "", ""]
+        focusIndex = 0
     }
 }
 
 #Preview {
     NavigationStack {
-        JoinRoomView2(vm: GameViewModel())
+        JoinRoomView2(vm: GameViewModel(), dismissAll: {})
     }
 }
 #endif

@@ -14,7 +14,7 @@ struct RoomSetupView: View {
     @Bindable var vm: GameViewModel
     @State private var showBrowser = false
 
-    var body: some View {
+    var body: some View {   
         NavigationStack {
             ZStack {
                 Image("pink-bg")
@@ -25,7 +25,7 @@ struct RoomSetupView: View {
                     Spacer()
 
                     // Logo — centered in upper half
-                    Image("sus-meter-1")
+                    Image("sus-meter-2")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 300)
@@ -72,8 +72,10 @@ struct RoomSetupView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(isPresented: $showBrowser) {
-                JoinRoomView(vm: vm)
+            .fullScreenCover(isPresented: $showBrowser) {
+                NavigationStack {
+                    JoinRoomView(vm: vm, dismissAll: { showBrowser = false })
+                }
             }
         }
         #if os(iOS)

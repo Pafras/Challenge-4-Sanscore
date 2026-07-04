@@ -12,7 +12,7 @@ import MultipeerConnectivity
 
 struct JoinRoomView: View {
     let vm: GameViewModel
-    @Environment(\.dismiss) private var dismiss
+    let dismissAll: () -> Void
 
     var body: some View {
         ZStack {
@@ -23,7 +23,7 @@ struct JoinRoomView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                Image("finding-room")
+                Image("finding-room-2")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 320)
@@ -39,7 +39,7 @@ struct JoinRoomView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button {
                     vm.room.stopBrowsing()
-                    dismiss()
+                    dismissAll()
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.title2.weight(.semibold))
@@ -48,7 +48,7 @@ struct JoinRoomView: View {
             }
         }
         .navigationDestination(isPresented: .constant(!vm.room.foundRooms.isEmpty)) {
-            JoinRoomView2(vm: vm)
+            JoinRoomView2(vm: vm, dismissAll: dismissAll)
         }
     }
 }
@@ -80,7 +80,7 @@ private struct LoadingBarsView: View {
 
 #Preview {
     NavigationStack {
-        JoinRoomView(vm: GameViewModel())
+        JoinRoomView(vm: GameViewModel(), dismissAll: {})
     }
 }
 #endif
