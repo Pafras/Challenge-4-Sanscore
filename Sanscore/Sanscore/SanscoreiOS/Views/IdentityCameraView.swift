@@ -33,8 +33,9 @@ struct IdentityCameraView: View {
     var initialIndex: Int = 0
     /// Player's name, shown in the ALL-SET title ("AGUNG READY!!"). Empty = generic.
     var name: String = ""
-    /// Finished, background-replaced photo. Caller passes to vm.setMyAvatar.
-    var onCapture: (UIImage) -> Void
+    /// Finished, background-replaced photo + the chosen palette colour index.
+    /// Caller passes both to vm.setMyAvatar (the colour drives the name badge).
+    var onCapture: (UIImage, Int) -> Void
     /// Swipe-down "enter" action. Pafras wires this to the room; default = nothing.
     var onEnter: () -> Void = {}
     var onClose: () -> Void = {}
@@ -51,7 +52,7 @@ struct IdentityCameraView: View {
     init(initialIndex: Int = 0,
          name: String = "",
          previewCaptured: UIImage? = nil,
-         onCapture: @escaping (UIImage) -> Void,
+         onCapture: @escaping (UIImage, Int) -> Void,
          onEnter: @escaping () -> Void = {},
          onClose: @escaping () -> Void = {}) {
         self.initialIndex = initialIndex
@@ -293,7 +294,8 @@ struct IdentityCameraView: View {
         // Fall back to a solid-colour photo when there's no camera frame yet
         // (Simulator / #Preview / warming up) so the flow is always testable.
         let shot = camera.latestFrame ?? placeholderImage()
-        onCapture(shot)                                   // save avatar
+        let colorIndex = min(max(0, bgIndex), palette.count - 1)   // chosen bg colour
+        onCapture(shot, colorIndex)                       // save avatar + its colour
         withAnimation(.bouncy(duration: 0.35, extraBounce: 0.12)) { captured = shot }   // fast, little bounce
     }
 
@@ -511,7 +513,7 @@ struct ThumbSwipeShape: Shape {
 }
 
 #Preview("Take a picture") {
-    IdentityCameraView(onCapture: { _ in })
+    IdentityCameraView(onCapture: { _, _ in })
 }
 
 #Preview("Slide to enter") {
@@ -520,6 +522,6 @@ struct ThumbSwipeShape: Shape {
         UIColor(red: 1, green: 0.42, blue: 0.42, alpha: 1).setFill()
         ctx.fill(CGRect(x: 0, y: 0, width: 220, height: 220))
     }
-    return IdentityCameraView(previewCaptured: photo, onCapture: { _ in })
+    return IdentityCameraView(previewCaptured: photo, onCapture: { _, _ in })
 }
 #endif

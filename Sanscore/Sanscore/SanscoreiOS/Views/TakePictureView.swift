@@ -34,7 +34,7 @@ struct EditProfileView: View {
 
     var body: some View {
         IdentityCameraView(
-            onCapture: { image in vm.setMyAvatar(image) },
+            onCapture: { image, colorIndex in vm.setMyAvatar(image, colorIndex: colorIndex) },
             // In the real pre-room flow, Pafras wires the swipe-down to enter the
             // room. From the lobby sheet, swipe-down / back just closes.
             onEnter: { dismiss() },

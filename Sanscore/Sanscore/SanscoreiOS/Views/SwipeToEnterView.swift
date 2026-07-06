@@ -28,7 +28,7 @@ struct IdentityFlowDemo: View {
             switch phase {
             case .identity:
                 IdentityCameraView(
-                    onCapture: { photo = $0 },
+                    onCapture: { p, _ in photo = p },
                     onEnter: { withAnimation(.easeInOut(duration: 0.4)) { phase = .room } },
                     onClose: {}
                 )
@@ -101,7 +101,7 @@ private struct DemoGameRoom: View {
 struct SwipeToEnterView: View {
     var onEnter: () -> Void = {}
     var body: some View {
-        IdentityCameraView(onCapture: { _ in }, onEnter: onEnter, onClose: {})
+        IdentityCameraView(onCapture: { _, _ in }, onEnter: onEnter, onClose: {})
     }
 }
 

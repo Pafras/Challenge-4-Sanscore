@@ -156,7 +156,7 @@ final class GameViewModel {
             // host must confirm the code (joinAccepted, handled in handle()). We
             // accept-then-validate so a wrong code gets an instant reply.
             // A newcomer won't have our avatar/name yet — resend both.
-            if let mine = avatars[myName] { room.send(.profile(name: myName, image: mine)) }
+            if let mine = avatars[myName] { room.send(.profile(name: myName, image: mine, colorIndex: avatarColorIndex[myName] ?? 0)) }
             if let name = displayNames[myName] { room.send(.rename(id: myName, display: name)) }
             // Host tells joiners the room title (its own name) for the lobby header.
             if room.isHost { room.send(.roomInfo(title: playerName)) }
@@ -165,10 +165,14 @@ final class GameViewModel {
 
     // Player took/retook their lobby photo. Downscale to a tiny JPEG (the local
     // network can't carry full-size images), store, and broadcast to the room.
-    func setMyAvatar(_ image: UIImage) {
+    // Chosen background colour index per player (drives the lobby name badge).
+    var avatarColorIndex: [String: Int] = [:]
+
+    func setMyAvatar(_ image: UIImage, colorIndex: Int = 0) {
         guard let data = image.jpegThumbnail(maxSide: 160, quality: 0.6) else { return }
         avatars[myName] = data
-        room.send(.profile(name: myName, image: data))
+        avatarColorIndex[myName] = colorIndex
+        room.send(.profile(name: myName, image: data, colorIndex: colorIndex))
     }
 
     // A specific peer left. Decide based on who they were:
@@ -251,8 +255,9 @@ final class GameViewModel {
             guard state == .waitingForResult || state == .spectating else { return }
             lastResult = SusResult(score: result.score, band: SusBand(score: result.score), verdict: result.verdict)
             state = .result
-        case let .profile(name, image):
+        case let .profile(name, image, colorIndex):
             avatars[name] = image
+            avatarColorIndex[name] = colorIndex
         case let .rename(id, display):
             displayNames[id] = display
         case .joinAccepted:

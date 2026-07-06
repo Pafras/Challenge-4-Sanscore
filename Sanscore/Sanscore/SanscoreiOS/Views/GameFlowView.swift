@@ -42,7 +42,7 @@ struct GameFlowView: View {
                 // Take photo (onCapture -> avatar) then swipe down (onEnter ->
                 // lobby). Marleen's morphing identity screen, wired into the flow.
                 IdentityCameraView(name: vm.playerName,
-                                   onCapture: { vm.setMyAvatar($0) },
+                                   onCapture: { img, colorIndex in vm.setMyAvatar(img, colorIndex: colorIndex) },
                                    onEnter: { vm.enterLobby() },
                                    onClose: { vm.cancelIdentity() })
                 #else

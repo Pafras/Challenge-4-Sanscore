@@ -101,7 +101,7 @@ enum RoomMessage: Codable {
     case turn(asker: String, answerer: String)   // host -> all, each round
     case question(String)                        // asker -> answerer
     case result(RoundResult)                     // answerer -> all
-    case profile(name: String, image: Data)      // any -> all: lobby avatar (tiny JPEG)
+    case profile(name: String, image: Data, colorIndex: Int)   // any -> all: avatar + chosen colour
     case rename(id: String, display: String)     // any -> all: chosen display name
     case joinAccepted                            // host -> joiner: code correct, you're in
     case joinRejected                            // host -> joiner: wrong code, leave

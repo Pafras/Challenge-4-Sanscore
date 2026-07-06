@@ -72,6 +72,7 @@ struct RoomLobbyView: View {
                 #if os(iOS)
                 PlayerBubblesPhysics(players: vm.room.players, avatars: vm.avatars,
                                      displayNames: vm.displayNames,
+                                     colorIndex: vm.avatarColorIndex,
                                      me: vm.myName) { showEditProfile = true }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 #else

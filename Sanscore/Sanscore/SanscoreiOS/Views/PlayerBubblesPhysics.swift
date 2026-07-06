@@ -18,6 +18,7 @@ struct PlayerBubblesPhysics: View {
     let players: [String]                 // stable ids (peer names)
     let avatars: [String: Data]
     var displayNames: [String: String] = [:]   // id → shown name (for the badge)
+    var colorIndex: [String: Int] = [:]         // id → chosen palette colour (badge fill)
     let me: String
     var onTapMe: () -> Void = {}           // tap your own ball → edit profile
 
@@ -64,16 +65,13 @@ struct PlayerBubblesPhysics: View {
     }
 
     private func nameBadge(_ b: BubbleEngine.Ball) -> some View {
-        Text((displayNames[b.id] ?? b.id).uppercased())
-            .font(.system(size: 12, weight: .black))
-            .foregroundStyle(.white)
-            .lineLimit(1)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
-            .background(Capsule().fill(Self.color(for: b.id)))
-            .overlay(Capsule().strokeBorder(.white, lineWidth: 1.5))
-            .fixedSize()
-            .offset(y: 11)          // overlap the bubble's bottom
+        // Stroked text (coloured fill + white outline, like the mockup). Fill =
+        // the background colour the player chose when taking their photo.
+        let palette = IdentityPalette.colors
+        let idx = min(max(0, colorIndex[b.id] ?? 0), palette.count - 1)
+        return IdentityTitle(text: (displayNames[b.id] ?? b.id).uppercased(),
+                             size: 20, strokeWidth: 4, fill: palette[idx], tilt: 0)
+            .offset(y: 12)          // straddle the bubble's bottom edge
     }
 
     // Default ~48pt radius for a handful; shrink as more players join.
