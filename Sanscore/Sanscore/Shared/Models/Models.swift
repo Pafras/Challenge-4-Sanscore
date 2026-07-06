@@ -105,4 +105,5 @@ enum RoomMessage: Codable {
     case rename(id: String, display: String)     // any -> all: chosen display name
     case joinAccepted                            // host -> joiner: code correct, you're in
     case joinRejected                            // host -> joiner: wrong code, leave
+    case roomInfo(title: String)                 // host -> joiner: room title (host's name)
 }

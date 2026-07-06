@@ -17,6 +17,7 @@ import CoreMotion
 struct PlayerBubblesPhysics: View {
     let players: [String]                 // stable ids (peer names)
     let avatars: [String: Data]
+    var displayNames: [String: String] = [:]   // id → shown name (for the badge)
     let me: String
     var onTapMe: () -> Void = {}           // tap your own ball → edit profile
 
@@ -56,8 +57,23 @@ struct PlayerBubblesPhysics: View {
         .frame(width: d, height: d)
         .clipShape(Circle())
         .overlay(Circle().strokeBorder(.white, lineWidth: max(3, b.radius * 0.06)))
+        // Name badge, straddling the BOTTOM edge of the bubble (see mockup).
+        .overlay(alignment: .bottom) { nameBadge(b) }
         .brightness(b.flash * 0.5)                 // collision flash
         .scaleEffect(1 + b.flash * 0.06)
+    }
+
+    private func nameBadge(_ b: BubbleEngine.Ball) -> some View {
+        Text((displayNames[b.id] ?? b.id).uppercased())
+            .font(.system(size: 12, weight: .black))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(Self.color(for: b.id)))
+            .overlay(Capsule().strokeBorder(.white, lineWidth: 1.5))
+            .fixedSize()
+            .offset(y: 11)          // overlap the bubble's bottom
     }
 
     // Default ~48pt radius for a handful; shrink as more players join.

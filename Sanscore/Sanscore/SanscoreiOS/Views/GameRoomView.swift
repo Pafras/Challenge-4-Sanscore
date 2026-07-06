@@ -17,16 +17,19 @@ struct RoomLobbyView: View {
     @State private var showEditProfile = false
     @State private var showLeaveConfirm = false
 
+    // Host's room title = its own name; a joiner shows the broadcast title.
+    private var roomTitleText: String {
+        (vm.room.isHost ? vm.playerName : vm.roomTitle).uppercased()
+    }
+
     private var roomPill: some View {
         VStack(spacing: 0) {
-            Text("ROOM").font(.system(size: 12, weight: .bold)).tracking(2)
-                .foregroundStyle(.white.opacity(0.85))
-            Text(vm.room.roomCode).font(.system(size: 30, weight: .black)).fontWidth(.expanded)
+            Text("ROOM \(roomTitleText)")
+                .font(.system(size: 13, weight: .bold)).tracking(1.5)
+                .foregroundStyle(.white.opacity(0.9))
+            Text(vm.room.roomCode).font(.system(size: 40, weight: .black)).fontWidth(.expanded)
                 .foregroundStyle(.white)
         }
-        .padding(.horizontal, 24).padding(.vertical, 8)
-        .background(Capsule().fill(.white.opacity(0.08)))
-        .overlay(Capsule().stroke(.white.opacity(0.4), lineWidth: 2))
     }
 
     private var countBadge: some View {
@@ -68,6 +71,7 @@ struct RoomLobbyView: View {
                 // Balls play in the MIDDLE region only — bounded above the CTA.
                 #if os(iOS)
                 PlayerBubblesPhysics(players: vm.room.players, avatars: vm.avatars,
+                                     displayNames: vm.displayNames,
                                      me: vm.myName) { showEditProfile = true }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 #else
@@ -77,14 +81,13 @@ struct RoomLobbyView: View {
                 // Host CTA = START; player CTA = wait + loading bars.
                 if vm.room.isHost {
                     Button { vm.start() } label: {
-                        Text("START")
-                            .font(.system(size: 26, weight: .black)).fontWidth(.expanded)
-                            .foregroundStyle(.white)
+                        IdentityTitle(text: "START", size: 30, tilt: 0)   // pink stroked
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 18)
-                            .background(Capsule().fill(.white.opacity(0.14)))
-                            .overlay(Capsule().stroke(.white.opacity(0.5), lineWidth: 2))
+                            .padding(.vertical, 20)
+                            .background(RoundedRectangle(cornerRadius: 22).fill(.white.opacity(0.06)))
+                            .overlay(RoundedRectangle(cornerRadius: 22).stroke(.white.opacity(0.4), lineWidth: 2))
                     }
+                    .padding(.horizontal, 4)
                 } else {
                     VStack(spacing: 12) {
                         Text("Waiting for host to start the game")

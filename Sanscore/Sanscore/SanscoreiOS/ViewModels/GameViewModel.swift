@@ -143,6 +143,7 @@ final class GameViewModel {
         displayNames[myName] = trimmed
         room.send(.rename(id: myName, display: trimmed))
         room.updateHostName(trimmed)
+        if room.isHost { room.send(.roomInfo(title: trimmed)) }   // update lobby title
     }
 
     private var inRound: Bool { state != .idle && state != .identity && state != .roomLobby }
@@ -157,6 +158,8 @@ final class GameViewModel {
             // A newcomer won't have our avatar/name yet — resend both.
             if let mine = avatars[myName] { room.send(.profile(name: myName, image: mine)) }
             if let name = displayNames[myName] { room.send(.rename(id: myName, display: name)) }
+            // Host tells joiners the room title (its own name) for the lobby header.
+            if room.isHost { room.send(.roomInfo(title: playerName)) }
         }
     }
 
@@ -270,6 +273,8 @@ final class GameViewModel {
                 joinError = "Wrong code. Please enter the right code."
                 room.disconnectSession()
             }
+        case let .roomInfo(title):
+            if !room.isHost { roomTitle = title }   // joiner shows the host's room title
         }
     }
 
@@ -325,6 +330,10 @@ final class GameViewModel {
     // (iOS 16+ redacts UIDevice.name to a generic "iPhone" for real phones; the
     // Simulator still shows its full name.)
     var roomName: String = UIDevice.current.name
+
+    // The lobby header title — the host's chosen name ("ROOM AGUNG"). Host uses
+    // its own playerName; a joiner gets it broadcast via .roomInfo.
+    var roomTitle: String = ""
 
     // Set when the player tapped CREATE: they become host only once they finish
     // the identity screen and enter the lobby (so the photo screen doesn't
