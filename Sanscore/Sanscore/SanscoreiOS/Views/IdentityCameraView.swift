@@ -44,6 +44,7 @@ struct IdentityCameraView: View {
     @State private var dragX: CGFloat = 0            // TAKE: live horizontal drag
     @State private var captured: UIImage? = nil      // nil = TAKE, set = ALL-SET
     @State private var dragY: CGFloat = 0            // ALL-SET: drag photo out
+    @State private var chevronBounce = false         // ALL-SET: swipe-down chevron bob
 
     // Pass previewCaptured (a photo) to open straight in the ALL-SET / Slide-to-
     // enter state — used by #Preview so you don't have to tap the shutter first.
@@ -149,7 +150,10 @@ struct IdentityCameraView: View {
                             .transition(.opacity)
                         Spacer()
                     } else {
-                        Spacer()   // finger hint (ThumbSwipe) + START are pinned below
+                        Spacer()
+                        // Swipe-down hints: animated chevron (here) + animated
+                        // finger (ThumbSwipe overlay). No START — that's the lobby.
+                        animatedChevron.transition(.opacity)
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -167,21 +171,6 @@ struct IdentityCameraView: View {
                             .frame(width: 104, height: 104)
                     }
                     .glassButton()
-                }
-                .transition(.opacity)
-            } else {
-                // ALL-SET: START button pinned at the bottom -> enter the room.
-                // (Swiping the photo down still works too, same onEnter.)
-                VStack {
-                    Spacer()
-                    Button(action: onEnter) {
-                        IdentityTitle(text: "START", size: 34, tilt: 0)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 18)
-                    }
-                    .buttonStyle(.glass)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
                 }
                 .transition(.opacity)
             }
@@ -253,6 +242,21 @@ struct IdentityCameraView: View {
                 .frame(width: 52, height: 52)
         }
         .glassButton()
+    }
+
+    // Bobbing "swipe down" chevron. Pairs with the ThumbSwipe finger.
+    private var animatedChevron: some View {
+        Image(systemName: "chevron.down.2")
+            .font(.system(size: 22, weight: .bold))
+            .foregroundStyle(.white)
+            .shadow(radius: 3)
+            .offset(y: chevronBounce ? 10 : -6)
+            .opacity(photoOpacity)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
+                    chevronBounce = true
+                }
+            }
     }
 
     // MARK: - Gestures / actions

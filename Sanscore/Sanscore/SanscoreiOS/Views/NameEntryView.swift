@@ -24,7 +24,7 @@ struct NameEntryView: View {
                 .ignoresSafeArea()
 
             VStack {
-                IdentityTitle(text: "WHAT'S\nYOUR NAME", size: 44, tilt: -4)
+                IdentityTitle(text: "WHAT'S\nYOUR NAME", size: 38, tilt: 0)   // flat, no lean
                     .padding(.top, 44)
 
                 Spacer()
@@ -35,7 +35,7 @@ struct NameEntryView: View {
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .multilineTextAlignment(.center)
-                    .font(.system(size: 44, weight: .bold))
+                    .font(.system(size: 56, weight: .bold))   // bigger than the title
                     .foregroundStyle(.white)
                     .tint(.white)                 // white cursor
                     .submitLabel(.done)
@@ -60,9 +60,10 @@ struct NameEntryView: View {
                 .padding(.bottom, 16)
             }
             .overlay(alignment: .topLeading) {
-                // Back = abandon the create/join (leaves room), return home.
+                // Close = abandon the create/join (leaves room), return home.
+                // X for consistency with the identity screens.
                 Button { vm.cancelIdentity() } label: {
-                    Image(systemName: "chevron.left")
+                    Image(systemName: "xmark")
                         .font(.title2.weight(.bold))
                         .foregroundStyle(.pink)
                         .padding(10)
