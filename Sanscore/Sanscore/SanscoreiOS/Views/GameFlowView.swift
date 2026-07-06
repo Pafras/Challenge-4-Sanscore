@@ -80,7 +80,22 @@ struct GameFlowView: View {
                 AnsweringView(onPress: { vm.answererPressed() },
                               onRelease: { vm.answererReleased() })
             case .spectating:
-                SpectatingView { vm.backToStart() }
+                // Spectator stays on the "you're the spectator" screen (not the
+                // old "watching this round" waiting view).
+                ZStack {
+                    RoleSpectatorView()
+                    #if DEBUG
+                    VStack {
+                        HStack {
+                            Button("Back") { vm.backToStart() }
+                                .buttonStyle(.borderedProminent)
+                                .padding()
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                    #endif
+                }
             case .waitingForResult:
                 WaitingForResultView { vm.backToStart() }
             case .loading:

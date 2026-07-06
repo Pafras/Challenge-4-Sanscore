@@ -298,8 +298,16 @@ final class GameViewModel {
         state = .roleReveal
         Task {
             try? await Task.sleep(for: .seconds(3.2))  // "picking roles" bubbles breathe
-            state = .roleResult                        // land on the role screen
-            try? await Task.sleep(for: .seconds(2))    // role reveal animation plays
+            // Spectator: go straight to .spectating, which shows the "you're the
+            // spectator" screen and KEEPS it on (no separate roleResult, so its
+            // reveal animation plays once and stays).
+            if myRole == .spectator {
+                state = .spectating
+                armResultTimeout()
+                return
+            }
+            state = .roleResult                        // Interrogator/Suspect reveal
+            try? await Task.sleep(for: .seconds(2))    // reveal animation plays
             switch myRole {
             case .asker:
                 state = .asking
@@ -307,8 +315,7 @@ final class GameViewModel {
                 responseClockStart = Date()
                 state = .answering
             case .spectator:
-                state = .spectating
-                armResultTimeout()
+                break   // handled above
             }
         }
     }
