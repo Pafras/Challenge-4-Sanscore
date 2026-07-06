@@ -57,7 +57,14 @@ struct GameFlowView: View {
             case .roomLobby:
                 RoomLobbyView(vm: vm)
             case .roleReveal:
-                RoleRevealView()          // colours spin like a roulette
+                #if os(iOS)
+                // "Picking roles" — lobby bubbles float + breathe while the host
+                // assigns this round. (Replaces the old colour roulette.)
+                PickingRolesView(players: vm.room.players, avatars: vm.avatars,
+                                 displayNames: vm.displayNames, colorIndex: vm.avatarColorIndex)
+                #else
+                RoleRevealView()
+                #endif
             case .roleResult:
                 // Roulette landed -> Agung's per-role reveal screen. Role is
                 // decided in applyTurn before the roulette starts.

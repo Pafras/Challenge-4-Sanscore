@@ -145,7 +145,7 @@ final class BubbleEngine {
         step(time: t)
         return balls
     }
-
+    
     // Add newcomers falling from the top; drop leavers; keep radius current.
     func sync(ids: [String], radius: CGFloat) {
         let have = Set(balls.map(\.id))
