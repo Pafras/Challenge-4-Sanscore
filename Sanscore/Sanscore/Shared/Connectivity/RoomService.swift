@@ -27,7 +27,7 @@ final class RoomService: NSObject {
     let session: MCSession
 
     private var advertiser: MCNearbyServiceAdvertiser   // recreated to change the advertised name
-    private let browser: MCNearbyServiceBrowser
+    private let browser: MCNearbyServiceBrowser         // stable: its peerIDs are what we invite with
 
     // UI watches these.
     var connectedPeers: [String] = []
@@ -36,11 +36,16 @@ final class RoomService: NSObject {
     // Host's 4-digit room code; joiners must enter it to be accepted.
     var roomCode = ""
 
+    // Host-side: code each joiner sent at invite time, keyed by their displayName.
+    // Checked once they connect, then cleared (see the accept/reject handshake).
+    private var pendingCodes: [String: String] = [:]
+
     // Nearby hosts the joiner can pick from (custom browser, so we can gate
     // joining behind the code).
     var foundRooms: [MCPeerID] = []
     // Host peerID -> the chosen display name it advertised (for the join list).
     var roomNames: [MCPeerID: String] = [:]
+
 
     // Called whenever a message arrives from another phone.
     var onMessage: ((RoomMessage) -> Void)?
@@ -91,14 +96,21 @@ final class RoomService: NSObject {
     // host that already left doesn't linger (MultipeerConnectivity's lostPeer
     // callback can lag several seconds).
     func startBrowsing() {
-        // Restart (stop then start) so already-discovered hosts are re-reported
-        // after we clear the list — otherwise a second browse shows nothing.
+        // You're JOINING now, not hosting — kill any advertiser still running from
+        // a previous "create", else the browser discovers your OWN room (a ghost).
+        advertiser.stopAdvertisingPeer()
+        isHost = false
+        // Stop/start the SAME browser (do NOT recreate it — the peerIDs it hands
+        // back are what we invite with; a fresh browser would invalidate them and
+        // joins would silently fail). Clearing the list drops hosts that have gone.
         browser.stopBrowsingForPeers()
         foundRooms = []
         roomNames = [:]
         browser.startBrowsingForPeers()
     }
-    func stopBrowsing() { browser.stopBrowsingForPeers() }
+    func stopBrowsing() {
+        browser.stopBrowsingForPeers()
+    }
 
     // Joiner tapped a room + entered a code — invite with the code attached.
     func join(_ host: MCPeerID, code: String) {
@@ -127,6 +139,16 @@ final class RoomService: NSObject {
               let data = try? JSONEncoder().encode(message) else { return }
         try? session.send(data, toPeers: session.connectedPeers, with: .reliable)
     }
+
+    // Send a message to ONE peer (used for the join accept/reject handshake).
+    func send(_ message: RoomMessage, to peer: MCPeerID) {
+        guard let data = try? JSONEncoder().encode(message) else { return }
+        try? session.send(data, toPeers: [peer], with: .reliable)
+    }
+
+    // Drop just the session (a rejected joiner leaving) without tearing down the
+    // browser/list, so they stay on the code screen and can retype.
+    func disconnectSession() { session.disconnect() }
 }
 
 extension RoomService: MCNearbyServiceAdvertiserDelegate {
@@ -134,22 +156,37 @@ extension RoomService: MCNearbyServiceAdvertiserDelegate {
                     didReceiveInvitationFromPeer peerID: MCPeerID,
                     withContext context: Data?,
                     invitationHandler: @escaping (Bool, MCSession?) -> Void) {
-        // Accept only if the joiner sent the right room code.
-        let sent = context.flatMap { String(data: $0, encoding: .utf8) }
-        invitationHandler(sent == roomCode, session)
+        // ACCEPT every invite, then validate the code over the connection and
+        // reply joinAccepted / joinRejected (see didChange). Declining instead
+        // would give the joiner no signal at all — MC tells the inviter nothing
+        // about a rejection, forcing a slow timeout guess.
+        let sent = context.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        pendingCodes[peerID.displayName] = sent
+        invitationHandler(true, session)
     }
 }
 
 extension RoomService: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String: String]?) {
+        // Never list your OWN room (MC can self-discover). displayName carries the
+        // unique installID suffix, so it reliably identifies this device.
+        guard peerID.displayName != myPeerID.displayName else { return }
         DispatchQueue.main.async {
-            if !self.foundRooms.contains(peerID) { self.foundRooms.append(peerID) }
+            // Dedup by displayName, not by MCPeerID object. Replace any existing
+            // entry for this device with the newest MCPeerID (needed to invite).
+            if let idx = self.foundRooms.firstIndex(where: { $0.displayName == peerID.displayName }) {
+                let old = self.foundRooms[idx]
+                if old != peerID { self.roomNames[old] = nil }   // drop orphan key
+                self.foundRooms[idx] = peerID
+            } else {
+                self.foundRooms.append(peerID)
+            }
             self.roomNames[peerID] = info?["name"] ?? peerID.displayName
         }
     }
     func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
         DispatchQueue.main.async {
-            self.foundRooms.removeAll { $0 == peerID }
+            self.foundRooms.removeAll { $0.displayName == peerID.displayName }
             self.roomNames[peerID] = nil
         }
     }
@@ -158,6 +195,13 @@ extension RoomService: MCNearbyServiceBrowserDelegate {
 extension RoomService: MCSessionDelegate {
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         DispatchQueue.main.async {
+            // Host: a joiner just connected -> check the code they sent at invite
+            // time and reply instantly. Wrong -> joinRejected (joiner leaves);
+            // right -> joinAccepted (joiner enters). No timeout guessing.
+            if state == .connected, self.isHost, let sent = self.pendingCodes[peerID.displayName] {
+                self.pendingCodes[peerID.displayName] = nil
+                self.send(sent == self.roomCode ? .joinAccepted : .joinRejected, to: peerID)
+            }
             self.connectedPeers = session.connectedPeers.map { $0.displayName }
             self.onConnectionChange?()
             if state == .notConnected {

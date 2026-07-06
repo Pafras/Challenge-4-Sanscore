@@ -74,7 +74,9 @@ struct RoomSetupView: View {
             .toolbar(.hidden, for: .navigationBar)
             .fullScreenCover(isPresented: $showBrowser) {
                 NavigationStack {
-                    JoinRoomView(vm: vm, dismissAll: { showBrowser = false })
+                    // FindingRoomView = the room-list browser (was JoinRoomView before
+                    // Agung's rename). It navigates on to JoinRoomView (the numpad).
+                    FindingRoomView(vm: vm, dismissAll: { showBrowser = false })
                 }
             }
         }
