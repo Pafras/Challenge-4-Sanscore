@@ -45,8 +45,8 @@ struct RoleSuspectView: View {
             Image("role-suspect")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 300)
-                .offset(y: 85)
+                .frame(width: 390)
+                .offset(y: 120)
                 .scaleEffect(showSuspect ? 1 : 3)
                 .opacity(showSuspect ? 1 : 0)
         }
