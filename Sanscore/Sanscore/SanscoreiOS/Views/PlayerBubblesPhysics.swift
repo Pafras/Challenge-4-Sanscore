@@ -117,9 +117,12 @@ final class BubbleEngine {
     private let motion = CMMotionManager()
     private let haptic = UIImpactFeedbackGenerator(style: .light)
     private var lastHaptic: Double = 0
-    private let restitution: CGFloat = 1.0    // DVD-style: no energy loss, perpetual bounce
-    private let speed: CGFloat = 260          // baseline drift speed (pt/s) — snappy
-    private let tiltScale: CGFloat = 350      // gyroscope: gentle steer, not gravity-pool
+    private let restitution: CGFloat = 1.0    // no energy loss on bounce
+    private let entrySpeed: CGFloat = 260     // momentum when entering from top
+    private let floorSpeed: CGFloat = 110     // livelier idle float (never fully stops)
+    private let maxSpeed: CGFloat = 1600      // hard shake can really rip
+    private let shakeScale: CGFloat = 12000   // shake power → speed (very responsive)
+    private let damping: CGFloat = 0.12       // low = shake energy lingers (feels alive)
 
     // One frame: sync roster/size, advance the sim, return the balls to draw.
     func frame(at t: Double, bounds: CGSize, ids: [String], radius: CGFloat) -> [Ball] {
@@ -137,7 +140,7 @@ final class BubbleEngine {
             // Enter from top, heading downward-ish; then bounces forever.
             let angle = CGFloat.random(in: (.pi * 0.25)...(.pi * 0.75))
             balls.append(Ball(id: id, pos: CGPoint(x: x, y: -radius),
-                              vel: CGVector(dx: cos(angle) * speed, dy: sin(angle) * speed),
+                              vel: CGVector(dx: cos(angle) * entrySpeed, dy: sin(angle) * entrySpeed),
                               radius: radius))
         }
         let keep = Set(ids)
@@ -151,12 +154,15 @@ final class BubbleEngine {
         let dt = min(CGFloat(time - last), 1.0 / 30.0)   // clamp big gaps
         lastT = time
 
-        // DVD bounce + gyroscope: tilt nudges direction, speed clamped so it
-        // stays lively (never accelerates away or stalls).
-        let tilt = tiltAccel()
+        // NO gravity — pure momentum + shake. userAcceleration (shake) adds
+        // speed; light damping eases back toward a gentle float; speed is
+        // floored (never stops) and capped (hard shake can't fling them away).
+        let kick = shakeAccel()
         for i in balls.indices {
-            balls[i].vel.dx += tilt.dx * dt
-            balls[i].vel.dy += tilt.dy * dt
+            balls[i].vel.dx += kick.dx * dt
+            balls[i].vel.dy += kick.dy * dt
+            balls[i].vel.dx -= balls[i].vel.dx * damping * dt
+            balls[i].vel.dy -= balls[i].vel.dy * damping * dt
             clampSpeed(&balls[i].vel)
             balls[i].pos.x += balls[i].vel.dx * dt
             balls[i].pos.y += balls[i].vel.dy * dt
@@ -166,17 +172,18 @@ final class BubbleEngine {
         resolvePairs()
     }
 
-    // Device tilt (gravity vector) → steering accel. y inverted (screen y down).
-    private func tiltAccel() -> CGVector {
-        guard let g = motion.deviceMotion?.gravity else { return .zero }
-        return CGVector(dx: CGFloat(g.x) * tiltScale, dy: CGFloat(-g.y) * tiltScale)
+    // Shake force from userAcceleration (excludes gravity → no down-pull).
+    // Stronger shake = bigger kick = faster balls.
+    private func shakeAccel() -> CGVector {
+        guard let u = motion.deviceMotion?.userAcceleration else { return .zero }
+        return CGVector(dx: CGFloat(u.x) * shakeScale, dy: CGFloat(-u.y) * shakeScale)
     }
 
-    // Keep speed in a lively band so tilt steers but never runs away / stops.
+    // Keep speed between a gentle floor (always floating) and a hard cap.
     private func clampSpeed(_ v: inout CGVector) {
         let s = hypot(v.dx, v.dy)
-        guard s > 0.1 else { v = CGVector(dx: speed, dy: 0); return }
-        let target = min(max(s, speed * 0.9), speed * 1.4)   // high floor = never settles
+        guard s > 0.1 else { v = CGVector(dx: floorSpeed, dy: 0); return }
+        let target = min(max(s, floorSpeed), maxSpeed)
         let k = target / s
         v.dx *= k; v.dy *= k
     }
