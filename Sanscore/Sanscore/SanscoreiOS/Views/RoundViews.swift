@@ -120,22 +120,6 @@ struct AnsweringView: View {
     }
 }
 
-struct CalibratingView: View {
-    let prompt: String
-    let step: Int
-    let total: Int
-    let onPress: () -> Void
-    let onRelease: () -> Void
-
-    var body: some View {
-        PushToTalkView(label: prompt,
-                       subtitle: "Calibrating \(step) of \(total) — this is your normal",
-                       color: .purple,
-                       onPress: onPress,
-                       onRelease: onRelease)
-    }
-}
-
 struct SpectatingView: View {
     let onCancel: () -> Void
 

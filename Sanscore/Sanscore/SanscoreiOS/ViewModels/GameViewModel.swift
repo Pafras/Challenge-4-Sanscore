@@ -222,6 +222,7 @@ final class GameViewModel {
         leftNotice = nil        // don't carry a stray "X left" toast to the start screen
         everConnected = false
         round = 0
+        hasPlayedARound = false   // next session's first reveal = LET'S BEGIN again
         waitToken += 1          // cancel any pending round timeout
         state = .idle
         // Auto-dismiss the home-screen notice after 3s so it doesn't linger.
@@ -239,6 +240,12 @@ final class GameViewModel {
         state = .roomLobby
     }
 
+    // Spectator taps Back — drop to the waiting room (stay in the room), not
+    // all the way out to the home screen.
+    func spectatorToLobby() {
+        returnToLobby(nil)
+    }
+
     var myName: String { room.myPeerID.displayName }
     private var round = 0   // host-only round counter for round-robin turns
 
@@ -254,6 +261,7 @@ final class GameViewModel {
             // Asker (waiting) + spectators show it; the answerer already has it.
             guard state == .waitingForResult || state == .spectating else { return }
             lastResult = SusResult(score: result.score, band: SusBand(score: result.score), verdict: result.verdict)
+            hasPlayedARound = true
             state = .result
         case let .profile(name, image, colorIndex):
             avatars[name] = image
@@ -283,8 +291,9 @@ final class GameViewModel {
         }
     }
 
-    // This device's role for the round, from the host's assignment. Roulette
-    // first, then land on the assigned screen.
+    // This device's role for the round, from the host's assignment. Figma
+    // order: calibrate first (once per session, all devices in parallel),
+    // then the LET'S BEGIN / picking-roles sequence.
     private func applyTurn(asker: String, answerer: String) {
         lastResult = nil
         currentQuestion = ""
@@ -295,9 +304,27 @@ final class GameViewModel {
         if myName == asker { myRole = .asker }
         else if myName == answerer { myRole = .answerer }
         else { myRole = .spectator }
+
+        // First round of a session: calibrate this player, then continue into
+        // the role sequence. Later rounds skip straight to it.
+        // ponytail: devices calibrate at their own pace, no done-sync message.
+        // A slow calibrator can trip the 30s result timeout on faster phones —
+        // first round only; add a .calibrated sync message if it bites.
+        if !isCalibrated {
+            afterCalibration = { [weak self] in self?.runRoleSequence() }
+            startCalibration()
+        } else {
+            runRoleSequence()
+        }
+    }
+
+    // Roulette ("picking roles"), then land on the assigned screen.
+    private func runRoleSequence() {
         state = .roleReveal
         Task {
-            try? await Task.sleep(for: .seconds(3.2))  // "picking roles" bubbles breathe
+            // 1.3s LET'S BEGIN / WHO'S NEXT card (RoleRevealIntro) + ~3.2s of
+            // "picking roles" bubbles breathing.
+            try? await Task.sleep(for: .seconds(4.5))
             // Spectator: go straight to .spectating, which shows the "you're the
             // spectator" screen and KEEPS it on (no separate roleResult, so its
             // reveal animation plays once and stays).
@@ -312,10 +339,39 @@ final class GameViewModel {
             case .asker:
                 state = .asking
             case .answerer:
-                responseClockStart = Date()
-                state = .answering
+                await beginAnswering()
             case .spectator:
                 break   // handled above
+            }
+        }
+    }
+
+    // Suspect's path into answering (Figma): the "put finger on camera"
+    // warning first, then live HR capture runs THROUGH the answer, feeding
+    // the rolling BPM readout — HR is measured during the stress, not after.
+    private(set) var liveBPM: Int?
+
+    // True once any round in this session finished. Drives the roleReveal
+    // intro card: first round = LET'S BEGIN, after = WHO'S NEXT. (Can't use
+    // lastResult — applyTurn nils it before the reveal shows.)
+    private(set) var hasPlayedARound = false
+
+    private func beginAnswering() async {
+        state = .fingerCheck
+        try? await Task.sleep(for: .seconds(3.5))   // read the warning, finger on
+        // WarningView's own camera preview tears down when the state flips;
+        // give AVFoundation a beat before grabbing the camera for PPG.
+        // ponytail: fixed waits, no finger detection. Detect via frame redness
+        // if players keep missing the lens.
+        state = .answering
+        responseClockStart = Date()
+        try? await Task.sleep(for: .seconds(0.5))
+        await heart.startLiveCapture()
+        // Poll the rolling estimate into the UI until the answer is scored.
+        Task { [weak self] in
+            while let self, self.state == .answering || self.state == .fingerCheck {
+                self.liveBPM = self.heart.liveBPM().map { Int($0.rounded()) }
+                try? await Task.sleep(for: .seconds(1))
             }
         }
     }
@@ -443,70 +499,59 @@ final class GameViewModel {
     }
     #endif
 
-    // --- Calibration ---
-    // Capture the player's OWN normal (heart rate, speech rate, response time)
-    // by averaging 3 easy answers, so the sus score measures deviation from
-    // THEM, not from hardcoded numbers. Set once before playing; reused rounds.
+    // --- Calibration (Figma) ---
+    // One quick sequence, no prompts: LETS CALIBRATE instruction -> put-finger
+    // warning -> MEASURING HEART RATE ("I swear that I'm telling the truth",
+    // live BPM). Captures the player's resting HR as the baseline.
+    // ponytail: only the HR baseline is measured now; responseTime/speechRate
+    // baselines stay at their defaults. Bring back spoken calibration prompts
+    // if those two signals score poorly.
     var isCalibrated = false
+    // What to do once calibration finishes (continue into the round). nil =
+    // stand-alone calibration, fall back to the start screen.
+    private var afterCalibration: (() -> Void)?
 
-    let calibrationPrompts = [
-        "Say your name and what you had for breakfast",
-        "Count out loud from one to ten",
-        "Describe what you did yesterday"
-    ]
-    private(set) var calibrationPrompt = ""
-    private(set) var calibrationStep = 0        // 0-based; UI shows +1
-
-    // Captures accumulated across the 3 prompts, averaged at the end.
-    private var calBPM: [Double] = []
-    private var calResp: [Double] = []
-    private var calRate: [Double] = []
+    enum CalibrationPhase { case instruction, warning, measuring }
+    private(set) var calibrationPhase: CalibrationPhase = .instruction
 
     func startCalibration() {
-        calibrationStep = 0
-        calBPM = []; calResp = []; calRate = []
-        calibrationPrompt = calibrationPrompts[0]
+        calibrationPhase = .instruction
         state = .calibrating
-    }
-
-    // Player pressed to answer the current calibration prompt.
-    func calibrationPressed() {
-        responseClockStart = Date()
-        try? speech.startListening()
-    }
-
-    // Player finished one prompt — capture, then advance or finish + average.
-    func calibrationReleased() {
-        let responseTime = Date().timeIntervalSince(responseClockStart ?? Date())
         Task {
-            state = .loading   // reuse the "reading heart rate" screen + countdown
-            let speechResult = await speech.stopAndTranscribe()
-            let bpm = await heart.currentBPM()
+            try? await Task.sleep(for: .seconds(3))     // read "LETS CALIBRATE"
+            calibrationPhase = .warning                 // put finger on camera
+            try? await Task.sleep(for: .seconds(3.5))
+            calibrationPhase = .measuring               // "I swear..." + live BPM
+            // WarningView's own camera tears down on the phase flip; give
+            // AVFoundation a beat before grabbing the camera for PPG.
+            try? await Task.sleep(for: .seconds(0.5))
+            await heart.startLiveCapture()
+            let poll = Task { [weak self] in
+                while let self, self.state == .calibrating {
+                    self.liveBPM = self.heart.liveBPM().map { Int($0.rounded()) }
+                    try? await Task.sleep(for: .seconds(1))
+                }
+            }
+            try? await Task.sleep(for: .seconds(8))     // PPG sample window
+            let bpm = await heart.finishLiveCapture()
+            poll.cancel()
+            // Hold the final reading on screen for a beat, then move on to
+            // LET'S BEGIN -> picking roles (RoleRevealIntro handles the card).
+            liveBPM = Int(bpm.rounded())
+            try? await Task.sleep(for: .seconds(1.5))
+            liveBPM = nil
 
-            calBPM.append(bpm)
-            if responseTime > 0 { calResp.append(responseTime) }
-            if speechResult.speechRate > 0 { calRate.append(speechResult.speechRate) }
-
-            calibrationStep += 1
-            if calibrationStep < calibrationPrompts.count {
-                calibrationPrompt = calibrationPrompts[calibrationStep]
-                state = .calibrating
+            baseline.heartRate = bpm
+            isCalibrated = true
+            // Mid-flow (Figma: calibrate right after the host starts):
+            // continue into the round. Stand-alone: back to the start.
+            if let next = afterCalibration {
+                afterCalibration = nil
+                next()
             } else {
-                // Average the captures; fall back to the old baseline per-signal
-                // if every capture for that signal was empty.
-                baseline = Baseline(
-                    heartRate: average(calBPM) ?? baseline.heartRate,
-                    responseTime: average(calResp) ?? baseline.responseTime,
-                    speechRate: average(calRate) ?? baseline.speechRate
-                )
-                isCalibrated = true
                 state = .idle
             }
         }
-    }
-
-    private func average(_ xs: [Double]) -> Double? {
-        xs.isEmpty ? nil : xs.reduce(0, +) / Double(xs.count)
     }
 
     // --- Push-to-talk ---
@@ -531,10 +576,10 @@ final class GameViewModel {
             setQuestion(q.text)
 
             if room.connectedPeers.isEmpty {
-                // Solo: this phone answers its own question next.
+                // Solo: this phone answers its own question next — same
+                // finger-warning + live-HR path as multiplayer.
                 myRole = .answerer
-                responseClockStart = Date()
-                state = .answering
+                await beginAnswering()
             } else {
                 room.send(.question(q.text))
                 state = .waitingForResult
@@ -574,9 +619,12 @@ final class GameViewModel {
     // it to the room. Only the answerer calls this — responseTime is
     // measured from the press-to-talk timestamps in answererPressed().
     private func runRound(responseTime: Double) async {
-        state = .loading   // reading heart rate + transcribing speech
+        state = .loading   // finishing the live HR capture + transcribing speech
         let speechResult = await speech.stopAndTranscribe()
-        let bpm = await heart.currentBPM()
+        // HR was captured live DURING the answer (started in beginAnswering);
+        // this just stops the camera and reads the estimate — near instant.
+        let bpm = await heart.finishLiveCapture()
+        liveBPM = nil
 
         state = .calculating   // the LLM judges the answer + fuses the score
         // The LLM is the only step that can fail; fall back to neutral 0.5.
@@ -596,6 +644,7 @@ final class GameViewModel {
         var result = engine.score(signals: signals, baseline: baseline, structureScore: structureResult.score)
         result.verdict = structureResult.verdict   // the LLM writes the funny line
         lastResult = result
+        hasPlayedARound = true
         state = .result
 
         room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict)))
@@ -622,12 +671,19 @@ final class GameViewModel {
         nextRound()
     }
 
-    // Solo single-phone loop: skip roles, this device asks then answers.
+    // Solo single-phone loop: this device asks then answers. Same visual
+    // sequence as multiplayer (calibrate -> LET'S BEGIN -> picking roles ->
+    // reveal), just without the host's turn broadcast.
     func startRound() {
         roomAlert = nil
         lastResult = nil
         currentQuestion = ""
         myRole = .asker
-        state = .asking
+        if !isCalibrated {
+            afterCalibration = { [weak self] in self?.runRoleSequence() }
+            startCalibration()
+        } else {
+            runRoleSequence()
+        }
     }
 }

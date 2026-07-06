@@ -49,19 +49,24 @@ struct GameFlowView: View {
                 Color.clear.onAppear { vm.enterLobby() }
                 #endif
             case .calibrating:
-                CalibratingView(prompt: vm.calibrationPrompt,
-                                step: vm.calibrationStep + 1,
-                                total: vm.calibrationPrompts.count,
-                                onPress: { vm.calibrationPressed() },
-                                onRelease: { vm.calibrationReleased() })
+                // Figma sequence: LETS CALIBRATE -> put-finger warning ->
+                // MEASURING HEART RATE (live BPM). Auto-advances in the vm.
+                switch vm.calibrationPhase {
+                case .instruction: LetsCalibrateView()
+                case .warning:     WarningView()
+                case .measuring:   MeasuringHeartRateView(bpm: vm.liveBPM)
+                }
             case .roomLobby:
                 RoomLobbyView(vm: vm)
             case .roleReveal:
                 #if os(iOS)
-                // "Picking roles" — lobby bubbles float + breathe while the host
-                // assigns this round. (Replaces the old colour roulette.)
-                PickingRolesView(players: vm.room.players, avatars: vm.avatars,
-                                 displayNames: vm.displayNames, colorIndex: vm.avatarColorIndex)
+                // Figma flow: a title card first — "LET'S BEGIN" on the first
+                // round of a session, "WHO'S NEXT" on later rounds — then the
+                // "picking roles" bubbles float + breathe while the host assigns.
+                RoleRevealIntro(firstRound: !vm.hasPlayedARound) {
+                    PickingRolesView(players: vm.room.players, avatars: vm.avatars,
+                                     displayNames: vm.displayNames, colorIndex: vm.avatarColorIndex)
+                }
                 #else
                 RoleRevealView()
                 #endif
@@ -74,11 +79,21 @@ struct GameFlowView: View {
                 case .spectator: RoleSpectatorView()
                 }
             case .asking:
-                AskingView(onPress: { vm.askerPressed() },
-                           onRelease: { vm.askerReleased() })
+                // Interrogator's hold-to-question mic (Agung's Figma screen).
+                InterrogatorHoldToQuestionView(onPress: { vm.askerPressed() },
+                                               onRelease: { vm.askerReleased() })
+            case .fingerCheck:
+                // "PUT FINGER ON CAMERA PLZZZ" — live camera bg (torch on), so
+                // the suspect lines their finger up before the answer starts.
+                WarningView()
             case .answering:
-                AnsweringView(onPress: { vm.answererPressed() },
-                              onRelease: { vm.answererReleased() })
+                // Suspect's hold-to-answer mic. bpm is the LIVE rolling PPG
+                // readout (capture runs during the answer); "--" until enough
+                // signal. isEnabled defaults true: we only reach .answering
+                // once the asker has released.
+                SuspectHoldToAnswerView(bpm: vm.liveBPM,
+                                        onPress: { vm.answererPressed() },
+                                        onRelease: { vm.answererReleased() })
             case .spectating:
                 // Spectator stays on the "you're the spectator" screen (not the
                 // old "watching this round" waiting view).
@@ -87,7 +102,7 @@ struct GameFlowView: View {
                     #if DEBUG
                     VStack {
                         Spacer()
-                        Button("Back") { vm.backToStart() }
+                        Button("Back") { vm.spectatorToLobby() }
                             .buttonStyle(.borderedProminent)
                             .padding(.bottom, 32)
                     }
@@ -120,6 +135,36 @@ struct GameFlowView: View {
         .animation(.default, value: vm.leftNotice)
     }
 }
+
+//MARK: - Role-reveal intro card
+
+#if os(iOS)
+// Plays a full-screen title card for ~1.3s, then crossfades to its content
+// (the picking-roles bubbles). LET'S BEGIN on the first round of a session,
+// WHO'S NEXT after — driven by vm.hasPlayedARound, set per-device when a
+// result lands, so every phone picks right without an extra network message.
+private struct RoleRevealIntro<Content: View>: View {
+    let firstRound: Bool
+    @ViewBuilder let content: Content
+    @State private var showIntro = true
+
+    var body: some View {
+        ZStack {
+            if showIntro {
+                (firstRound ? AnyView(LetsBeginView()) : AnyView(WhosNextView()))
+                    .transition(.opacity)
+            } else {
+                content.transition(.opacity)
+            }
+        }
+        .animation(.easeInOut, value: showIntro)
+        .task {
+            try? await Task.sleep(for: .seconds(1.3))
+            showIntro = false
+        }
+    }
+}
+#endif
 
 //MARK: - Shared background
 

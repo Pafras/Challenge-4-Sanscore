@@ -69,6 +69,7 @@ enum GameState {
     case roleReveal    // roulette: colours spin like a slot machine
     case roleResult    // lands -> shows this device's role screen (Interrogator/Suspect/Spectator)
     case asking
+    case fingerCheck      // answerer only: "put finger on camera" warning before answering
     case answering
     case spectating       // not this round's asker or answerer
     case waitingForResult // asker, after release: waiting on the answerer's phone

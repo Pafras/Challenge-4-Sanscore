@@ -34,9 +34,20 @@ struct InterrogatorHoldToQuestionView: View {
     @State private var phase: Phase = .asking
     @State private var isHolding = false
 
+    // ── PUSH-TO-TALK (wire point) ─────────────────────────────────────────
+    // Wired in GameFlowView to vm.askerPressed() (start capturing the question)
+    // and vm.askerReleased() (transcribe + broadcast, move everyone forward).
+    // nil in #Preview, where the local WAITING phase drives the preview.
+    private let onPress: (() -> Void)?
+    private let onRelease: (() -> Void)?
+
     /// `previewWaiting: true` opens straight in the WAITING phase (for #Preview).
-    init(previewWaiting: Bool = false) {
+    init(previewWaiting: Bool = false,
+         onPress: (() -> Void)? = nil,
+         onRelease: (() -> Void)? = nil) {
         _phase = State(initialValue: previewWaiting ? .waiting : .asking)
+        self.onPress = onPress
+        self.onRelease = onRelease
     }
 
     var body: some View {
@@ -52,9 +63,11 @@ struct InterrogatorHoldToQuestionView: View {
             }
         }
         .animation(.easeInOut, value: phase)
-        // Release the mic = done asking -> wait for the answer.
+        // Press the mic = start capturing. Release = done asking -> wait for
+        // the answer (locally flips to WAITING; in-flow vm moves the state on).
         .onChange(of: isHolding) { wasHolding, nowHolding in
-            if wasHolding && !nowHolding { phase = .waiting }
+            if !wasHolding && nowHolding { onPress?() }
+            if wasHolding && !nowHolding { phase = .waiting; onRelease?() }
         }
     }
 

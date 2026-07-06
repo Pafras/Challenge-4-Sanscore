@@ -14,6 +14,12 @@ struct MockHeartRate: HeartRateSource {
         try? await Task.sleep(for: .seconds(2))
         return bpm
     }
+
+    // Live capture: fake a readout that jitters around the base BPM so the
+    // suspect screen's rolling number looks alive in the Simulator.
+    func startLiveCapture() async {}
+    func liveBPM() -> Double? { bpm + Double(Int.random(in: -4...4)) }
+    func finishLiveCapture() async -> Double { bpm }
 }
 
 struct MockSpeech: SpeechCapturing {

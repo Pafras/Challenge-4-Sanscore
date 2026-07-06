@@ -43,7 +43,35 @@ final class RealHeartRate: NSObject, HeartRateSource, AVCaptureVideoDataOutputSa
         }
         try? await Task.sleep(nanoseconds: UInt64(sampleWindow * 1_000_000_000))
         stop()
-        return estimateBPM() ?? 75
+        return estimateBPM(samplesSnapshot()) ?? 75
+    }
+
+    // MARK: - Live capture (during the answer)
+
+    // Start collecting and keep the camera running; the answer screen polls
+    // liveBPM() for its readout and finishLiveCapture() scores at release.
+    func startLiveCapture() async {
+        if await configureAndStart() == false {
+            print("❤️‍🩹 HR live: camera failed to start")
+        }
+    }
+
+    // Rolling estimate over the most recent ~6s of signal, so the readout
+    // tracks the player instead of averaging their whole answer.
+    func liveBPM() -> Double? {
+        let snapshot = samplesSnapshot()
+        guard let last = snapshot.last else { return nil }
+        return estimateBPM(snapshot.filter { last.t - $0.t <= 6 })
+    }
+
+    func finishLiveCapture() async -> Double {
+        stop()
+        return estimateBPM(samplesSnapshot()) ?? 75
+    }
+
+    // samples is only mutated on `queue`; read it there too.
+    private func samplesSnapshot() -> [(t: Double, v: Double)] {
+        queue.sync { samples }
     }
 
     // MARK: - Camera setup
@@ -147,7 +175,7 @@ final class RealHeartRate: NSObject, HeartRateSource, AVCaptureVideoDataOutputSa
 
     // MARK: - BPM estimate
 
-    private func estimateBPM() -> Double? {
+    private func estimateBPM(_ samples: [(t: Double, v: Double)]) -> Double? {
         guard samples.count > 30 else { return nil }   // finger probably wasn't on
 
         let values = samples.map { $0.v }

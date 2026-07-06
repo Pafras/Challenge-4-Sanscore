@@ -39,6 +39,13 @@ struct SuspectHoldToAnswerView: View {
     // the interrogator releases their button:
     //     SuspectHoldToAnswerView(isEnabled: vm.canAnswer)
     var isEnabled: Bool = true
+
+    // ── PUSH-TO-TALK (wire point) ─────────────────────────────────────────
+    // Fired when the suspect presses / releases the mic. Wired in GameFlowView
+    // to vm.answererPressed() (stop response clock + start capture) and
+    // vm.answererReleased() (score the round). nil in #Preview.
+    var onPress: (() -> Void)? = nil
+    var onRelease: (() -> Void)? = nil
     // ──────────────────────────────────────────────────────────────────────
 
     // ─── TUNABLES ─────────────────────────────────────────────────────────
@@ -108,6 +115,12 @@ struct SuspectHoldToAnswerView: View {
             }
         }
         .animation(.easeInOut, value: isEnabled)
+        // Hold start -> onPress, release -> onRelease. Only when enabled, so a
+        // disabled (waiting) button can't fire the round.
+        .onChange(of: isHolding) { _, holding in
+            guard isEnabled else { return }
+            if holding { onPress?() } else { onRelease?() }
+        }
     }
 }
 

@@ -73,11 +73,21 @@ struct NameEntryView: View {
                 .padding(.top, 8)
             }
         }
-        .onAppear { focused = true }   // pop the keyboard immediately
+        // Pop the keyboard AFTER the screen transition settles. Focusing in
+        // onAppear races the root switch's state animation — the field grabs
+        // focus mid-transition and the keyboard never shows (Simulator
+        // reproduces it reliably).
+        .task {
+            try? await Task.sleep(for: .seconds(0.5))
+            focused = true
+        }
     }
 
     private func done() {
         guard !trimmed.isEmpty else { return }
+        // Drop focus FIRST so the keyboard dismisses with this screen instead
+        // of lingering over the photo screen for a beat.
+        focused = false
         vm.finishNameEntry(trimmed)
     }
 }

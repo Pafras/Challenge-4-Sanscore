@@ -11,6 +11,24 @@ import Foundation
 // OWNER: Pafras (camera PPG + Watch are async/hardware = lead's job).
 protocol HeartRateSource {
     func currentBPM() async -> Double
+
+    // Live capture: camera runs WHILE the player answers (finger on lens the
+    // whole time), so HR is measured during the stress, not 8s after it.
+    //   startLiveCapture()  -> begin collecting (called entering .answering)
+    //   liveBPM()           -> rolling estimate for the on-screen readout,
+    //                          nil until there's enough signal
+    //   finishLiveCapture() -> stop + final BPM for scoring
+    func startLiveCapture() async
+    func liveBPM() -> Double?
+    func finishLiveCapture() async -> Double
+}
+
+// Defaults so a source without live support (e.g. a future Watch source)
+// still works: no live readout, and "finish" falls back to a fresh capture.
+extension HeartRateSource {
+    func startLiveCapture() async {}
+    func liveBPM() -> Double? { nil }
+    func finishLiveCapture() async -> Double { await currentBPM() }
 }
 
 // What one speech capture produces. rate is computed, not stored.
