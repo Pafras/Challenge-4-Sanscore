@@ -34,10 +34,7 @@ struct RoomLobbyView: View {
             Image(systemName: "person.2.fill")
             Text("\(vm.room.players.count)")
         }
-        .font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
-        .padding(.horizontal, 14).padding(.vertical, 10)
-        .background(Capsule().fill(.white.opacity(0.08)))
-        .overlay(Capsule().stroke(.white.opacity(0.4), lineWidth: 2))
+        .font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
     }
 
     var body: some View {
@@ -45,13 +42,6 @@ struct RoomLobbyView: View {
             // Dark "box of balls" room.
             Color.black.ignoresSafeArea()
             CheckeredBackground().ignoresSafeArea()
-
-            // Player avatars as physics balls (fall from top, bounce, tilt/shake).
-            #if os(iOS)
-            PlayerBubblesPhysics(players: vm.room.players, avatars: vm.avatars,
-                                 me: vm.myName) { showEditProfile = true }
-                .ignoresSafeArea()
-            #endif
 
             VStack(spacing: 12) {
                 // Top bar: close (X) · ROOM code pill · player count.
@@ -75,7 +65,14 @@ struct RoomLobbyView: View {
                         .multilineTextAlignment(.center)
                 }
 
+                // Balls play in the MIDDLE region only — bounded above the CTA.
+                #if os(iOS)
+                PlayerBubblesPhysics(players: vm.room.players, avatars: vm.avatars,
+                                     me: vm.myName) { showEditProfile = true }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                #else
                 Spacer()
+                #endif
 
                 // Host CTA = START; player CTA = wait + loading bars.
                 if vm.room.isHost {
