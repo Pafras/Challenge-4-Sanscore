@@ -72,9 +72,9 @@ struct PickingRolesView: View {
 
     // MARK: motion (time-only, no CoreMotion)
 
-    // Breathing: slower, deeper pulse (~0.82…1.18), each bubble on its own phase.
+    // Breathing: fast, rushed pulse (~0.82…1.18), each bubble on its own phase.
     private func breathe(_ i: Int, _ t: Double) -> CGFloat {
-        1 + CGFloat(sin(t * 1.05 + Double(i) * 1.7)) * 0.18
+        1 + CGFloat(sin(t * 3.8 + Double(i) * 1.7)) * 0.18
     }
 
     // Roam: cluster near the MIDDLE and mill around it. Tight base ring + wide
