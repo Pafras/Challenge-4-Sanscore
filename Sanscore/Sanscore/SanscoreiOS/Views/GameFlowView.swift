@@ -31,11 +31,18 @@ struct GameFlowView: View {
             switch vm.state {
             case .idle:
                 RoomSetupView(vm: vm)
+            case .nameEntry:
+                #if os(iOS)
+                NameEntryView(vm: vm)
+                #else
+                Color.clear.onAppear { vm.finishNameEntry("") }
+                #endif
             case .identity:
                 #if os(iOS)
                 // Take photo (onCapture -> avatar) then swipe down (onEnter ->
                 // lobby). Marleen's morphing identity screen, wired into the flow.
-                IdentityCameraView(onCapture: { vm.setMyAvatar($0) },
+                IdentityCameraView(name: vm.playerName,
+                                   onCapture: { img, colorIndex in vm.setMyAvatar(img, colorIndex: colorIndex) },
                                    onEnter: { vm.enterLobby() },
                                    onClose: { vm.cancelIdentity() })
                 #else
@@ -50,7 +57,22 @@ struct GameFlowView: View {
             case .roomLobby:
                 RoomLobbyView(vm: vm)
             case .roleReveal:
+                #if os(iOS)
+                // "Picking roles" — lobby bubbles float + breathe while the host
+                // assigns this round. (Replaces the old colour roulette.)
+                PickingRolesView(players: vm.room.players, avatars: vm.avatars,
+                                 displayNames: vm.displayNames, colorIndex: vm.avatarColorIndex)
+                #else
                 RoleRevealView()
+                #endif
+            case .roleResult:
+                // Roulette landed -> Agung's per-role reveal screen. Role is
+                // decided in applyTurn before the roulette starts.
+                switch vm.myRole {
+                case .asker:     RoleInterrogatorView()
+                case .answerer:  RoleSuspectView()
+                case .spectator: RoleSpectatorView()
+                }
             case .asking:
                 AskingView(onPress: { vm.askerPressed() },
                            onRelease: { vm.askerReleased() })
@@ -58,7 +80,19 @@ struct GameFlowView: View {
                 AnsweringView(onPress: { vm.answererPressed() },
                               onRelease: { vm.answererReleased() })
             case .spectating:
-                SpectatingView { vm.backToStart() }
+                // Spectator stays on the "you're the spectator" screen (not the
+                // old "watching this round" waiting view).
+                ZStack {
+                    RoleSpectatorView()
+                    #if DEBUG
+                    VStack {
+                        Spacer()
+                        Button("Back") { vm.backToStart() }
+                            .buttonStyle(.borderedProminent)
+                            .padding(.bottom, 32)
+                    }
+                    #endif
+                }
             case .waitingForResult:
                 WaitingForResultView { vm.backToStart() }
             case .loading:

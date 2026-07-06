@@ -14,16 +14,25 @@ import SwiftUI
 import Combine
 
 struct RoleRevealView: View {
-    @State private var flicker = false
+    // Colours cycle like a slot machine while the role is picked.
+    private let colors: [Color] = [.blue, .green, .purple, .orange, .pink, .yellow, .red, .mint]
+    @State private var idx = 0
 
     var body: some View {
-        Rectangle()
-            .fill(flicker ? .blue : .green)
+        colors[idx]
             .ignoresSafeArea()
+            .overlay(
+                Text("?")
+                    .font(.system(size: 140, weight: .black))
+                    .foregroundStyle(.white)
+            )
             .task {
+                // Spin through the palette; slows slightly as it goes (roulette feel).
+                var delay = 60
                 while true {
-                    try? await Task.sleep(for: .milliseconds(120))
-                    flicker.toggle()
+                    try? await Task.sleep(for: .milliseconds(delay))
+                    idx = (idx + 1) % colors.count
+                    if delay < 140 { delay += 6 }   // ease-out the spin
                 }
             }
     }

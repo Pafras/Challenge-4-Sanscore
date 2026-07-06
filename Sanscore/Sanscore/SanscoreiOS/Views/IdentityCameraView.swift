@@ -31,8 +31,11 @@ import CoreImage.CIFilterBuiltins
 
 struct IdentityCameraView: View {
     var initialIndex: Int = 0
-    /// Finished, background-replaced photo. Caller passes to vm.setMyAvatar.
-    var onCapture: (UIImage) -> Void
+    /// Player's name, shown in the ALL-SET title ("AGUNG READY!!"). Empty = generic.
+    var name: String = ""
+    /// Finished, background-replaced photo + the chosen palette colour index.
+    /// Caller passes both to vm.setMyAvatar (the colour drives the name badge).
+    var onCapture: (UIImage, Int) -> Void
     /// Swipe-down "enter" action. Pafras wires this to the room; default = nothing.
     var onEnter: () -> Void = {}
     var onClose: () -> Void = {}
@@ -42,15 +45,18 @@ struct IdentityCameraView: View {
     @State private var dragX: CGFloat = 0            // TAKE: live horizontal drag
     @State private var captured: UIImage? = nil      // nil = TAKE, set = ALL-SET
     @State private var dragY: CGFloat = 0            // ALL-SET: drag photo out
+    @State private var chevronBounce = false         // ALL-SET: swipe-down chevron bob
 
     // Pass previewCaptured (a photo) to open straight in the ALL-SET / Slide-to-
     // enter state — used by #Preview so you don't have to tap the shutter first.
     init(initialIndex: Int = 0,
+         name: String = "",
          previewCaptured: UIImage? = nil,
-         onCapture: @escaping (UIImage) -> Void,
+         onCapture: @escaping (UIImage, Int) -> Void,
          onEnter: @escaping () -> Void = {},
          onClose: @escaping () -> Void = {}) {
         self.initialIndex = initialIndex
+        self.name = name
         self.onCapture = onCapture
         self.onEnter = onEnter
         self.onClose = onClose
@@ -108,7 +114,9 @@ struct IdentityCameraView: View {
                 // circle pinned to screen center in BOTH states.
                 VStack {
                     Spacer()
-                    IdentityTitle(text: isTake ? "TAKE YOUR\nPICTURE" : "YOU'RE\nALL SET!!", tilt: isTake ? 3:-3)
+                    IdentityTitle(text: isTake ? "TAKE YOUR\nPICTURE"
+                                        : (name.isEmpty ? "YOU'RE\nALL SET!!" : "\(name.uppercased())\nREADY!!"),
+                                  tilt: isTake ? 3 : -3)
                 }
                 .frame(maxHeight: .infinity)
 
@@ -144,7 +152,9 @@ struct IdentityCameraView: View {
                         Spacer()
                     } else {
                         Spacer()
-                        swipeDownHint.transition(.opacity)
+                        // Swipe-down hints: animated chevron (here) + animated
+                        // finger (ThumbSwipe overlay). No START — that's the lobby.
+                        animatedChevron.transition(.opacity)
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -182,7 +192,7 @@ struct IdentityCameraView: View {
         }
         .overlay(alignment: .topLeading) {
             Button(action: onClose) {
-                Image(systemName: "chevron.left")
+                Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
@@ -235,16 +245,19 @@ struct IdentityCameraView: View {
         .glassButton()
     }
 
-    private var swipeDownHint: some View {
-        VStack(spacing: 8) {
-            Text("Swipe Down")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(.white)
-            Image(systemName: "chevron.down.2")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white)
-        }.shadow(radius: 3)
-        .opacity(photoOpacity)
+    // Bobbing "swipe down" chevron. Pairs with the ThumbSwipe finger.
+    private var animatedChevron: some View {
+        Image(systemName: "chevron.down.2")
+            .font(.system(size: 22, weight: .bold))
+            .foregroundStyle(.white)
+            .shadow(radius: 3)
+            .offset(y: chevronBounce ? 10 : -6)
+            .opacity(photoOpacity)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
+                    chevronBounce = true
+                }
+            }
     }
 
     // MARK: - Gestures / actions
@@ -281,7 +294,8 @@ struct IdentityCameraView: View {
         // Fall back to a solid-colour photo when there's no camera frame yet
         // (Simulator / #Preview / warming up) so the flow is always testable.
         let shot = camera.latestFrame ?? placeholderImage()
-        onCapture(shot)                                   // save avatar
+        let colorIndex = min(max(0, bgIndex), palette.count - 1)   // chosen bg colour
+        onCapture(shot, colorIndex)                       // save avatar + its colour
         withAnimation(.bouncy(duration: 0.35, extraBounce: 0.12)) { captured = shot }   // fast, little bounce
     }
 
@@ -499,7 +513,7 @@ struct ThumbSwipeShape: Shape {
 }
 
 #Preview("Take a picture") {
-    IdentityCameraView(onCapture: { _ in })
+    IdentityCameraView(onCapture: { _, _ in })
 }
 
 #Preview("Slide to enter") {
@@ -508,6 +522,6 @@ struct ThumbSwipeShape: Shape {
         UIColor(red: 1, green: 0.42, blue: 0.42, alpha: 1).setFill()
         ctx.fill(CGRect(x: 0, y: 0, width: 220, height: 220))
     }
-    return IdentityCameraView(previewCaptured: photo, onCapture: { _ in })
+    return IdentityCameraView(previewCaptured: photo, onCapture: { _, _ in })
 }
 #endif

@@ -62,10 +62,12 @@ enum SusBand: Equatable {
 // Where the game is right now. UI reads this to decide what screen to show.
 enum GameState {
     case idle          // create/join room
-    case identity      // take photo + swipe-down to enter (after create/join, before lobby)
+    case nameEntry     // "what's your name" — after create/join code, before photo
+    case identity      // take photo + swipe-down to enter (after name, before lobby)
     case calibrating
     case roomLobby     // connected, waiting for host to hit start
-    case roleReveal    // roulette animation assigning this device's role
+    case roleReveal    // roulette: colours spin like a slot machine
+    case roleResult    // lands -> shows this device's role screen (Interrogator/Suspect/Spectator)
     case asking
     case answering
     case spectating       // not this round's asker or answerer
@@ -99,8 +101,9 @@ enum RoomMessage: Codable {
     case turn(asker: String, answerer: String)   // host -> all, each round
     case question(String)                        // asker -> answerer
     case result(RoundResult)                     // answerer -> all
-    case profile(name: String, image: Data)      // any -> all: lobby avatar (tiny JPEG)
+    case profile(name: String, image: Data, colorIndex: Int)   // any -> all: avatar + chosen colour
     case rename(id: String, display: String)     // any -> all: chosen display name
     case joinAccepted                            // host -> joiner: code correct, you're in
     case joinRejected                            // host -> joiner: wrong code, leave
+    case roomInfo(title: String)                 // host -> joiner: room title (host's name)
 }

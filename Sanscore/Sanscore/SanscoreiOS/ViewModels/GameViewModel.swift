@@ -143,6 +143,7 @@ final class GameViewModel {
         displayNames[myName] = trimmed
         room.send(.rename(id: myName, display: trimmed))
         room.updateHostName(trimmed)
+        if room.isHost { room.send(.roomInfo(title: trimmed)) }   // update lobby title
     }
 
     private var inRound: Bool { state != .idle && state != .identity && state != .roomLobby }
@@ -155,17 +156,23 @@ final class GameViewModel {
             // host must confirm the code (joinAccepted, handled in handle()). We
             // accept-then-validate so a wrong code gets an instant reply.
             // A newcomer won't have our avatar/name yet — resend both.
-            if let mine = avatars[myName] { room.send(.profile(name: myName, image: mine)) }
+            if let mine = avatars[myName] { room.send(.profile(name: myName, image: mine, colorIndex: avatarColorIndex[myName] ?? 0)) }
             if let name = displayNames[myName] { room.send(.rename(id: myName, display: name)) }
+            // Host tells joiners the room title (its own name) for the lobby header.
+            if room.isHost { room.send(.roomInfo(title: playerName)) }
         }
     }
 
     // Player took/retook their lobby photo. Downscale to a tiny JPEG (the local
     // network can't carry full-size images), store, and broadcast to the room.
-    func setMyAvatar(_ image: UIImage) {
+    // Chosen background colour index per player (drives the lobby name badge).
+    var avatarColorIndex: [String: Int] = [:]
+
+    func setMyAvatar(_ image: UIImage, colorIndex: Int = 0) {
         guard let data = image.jpegThumbnail(maxSide: 160, quality: 0.6) else { return }
         avatars[myName] = data
-        room.send(.profile(name: myName, image: data))
+        avatarColorIndex[myName] = colorIndex
+        room.send(.profile(name: myName, image: data, colorIndex: colorIndex))
     }
 
     // A specific peer left. Decide based on who they were:
@@ -217,6 +224,12 @@ final class GameViewModel {
         round = 0
         waitToken += 1          // cancel any pending round timeout
         state = .idle
+        // Auto-dismiss the home-screen notice after 3s so it doesn't linger.
+        if let shown = reason {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                if self?.roomAlert == shown { self?.roomAlert = nil }
+            }
+        }
     }
 
     // Soft reset: keep the room + connection, drop back to the lobby.
@@ -242,18 +255,19 @@ final class GameViewModel {
             guard state == .waitingForResult || state == .spectating else { return }
             lastResult = SusResult(score: result.score, band: SusBand(score: result.score), verdict: result.verdict)
             state = .result
-        case let .profile(name, image):
+        case let .profile(name, image, colorIndex):
             avatars[name] = image
+            avatarColorIndex[name] = colorIndex
         case let .rename(id, display):
             displayNames[id] = display
         case .joinAccepted:
-            // Host confirmed the code -> we're in. Advance to the photo screen.
+            // Host confirmed the code -> we're in. Name screen, then photo.
             if pendingJoin {
                 pendingJoin = false
                 joinToken &+= 1        // cancel the safety timeout
                 joinError = nil
                 room.stopBrowsing()
-                state = .identity
+                state = .nameEntry
             }
         case .joinRejected:
             // Host says the code was wrong -> instant warning, leave the session,
@@ -264,6 +278,8 @@ final class GameViewModel {
                 joinError = "Wrong code. Please enter the right code."
                 room.disconnectSession()
             }
+        case let .roomInfo(title):
+            if !room.isHost { roomTitle = title }   // joiner shows the host's room title
         }
     }
 
@@ -274,20 +290,32 @@ final class GameViewModel {
         currentQuestion = ""
         currentAsker = asker
         currentAnswerer = answerer
+        // Decide THIS device's role NOW so the reveal screen can show the right
+        // one (Interrogator = asker, Suspect = answerer, Spectator = the rest).
+        if myName == asker { myRole = .asker }
+        else if myName == answerer { myRole = .answerer }
+        else { myRole = .spectator }
         state = .roleReveal
         Task {
-            try? await Task.sleep(for: .seconds(2))
-            if myName == asker {
-                myRole = .asker
-                state = .asking
-            } else if myName == answerer {
-                myRole = .answerer
-                responseClockStart = Date()
-                state = .answering
-            } else {
-                myRole = .spectator
+            try? await Task.sleep(for: .seconds(3.2))  // "picking roles" bubbles breathe
+            // Spectator: go straight to .spectating, which shows the "you're the
+            // spectator" screen and KEEPS it on (no separate roleResult, so its
+            // reveal animation plays once and stays).
+            if myRole == .spectator {
                 state = .spectating
                 armResultTimeout()
+                return
+            }
+            state = .roleResult                        // Interrogator/Suspect reveal
+            try? await Task.sleep(for: .seconds(2))    // reveal animation plays
+            switch myRole {
+            case .asker:
+                state = .asking
+            case .answerer:
+                responseClockStart = Date()
+                state = .answering
+            case .spectator:
+                break   // handled above
             }
         }
     }
@@ -309,11 +337,11 @@ final class GameViewModel {
 
     // --- Room setup ---
 
-    // "Create room" — become host, generate a code, advertise under my name.
-    // The host's room name shown in the nearby-rooms list — the device name.
-    // (iOS 16+ redacts UIDevice.name to a generic "iPhone" for real phones; the
-    // Simulator still shows its full name.)
-    var roomName: String = UIDevice.current.name
+    // The lobby header title — the host's chosen name ("ROOM AGUNG"). Host uses
+    // its own playerName; a joiner gets it broadcast via .roomInfo. The room is
+    // also advertised under this name (see enterLobby) so the finding-room list
+    // matches.
+    var roomTitle: String = ""
 
     // Set when the player tapped CREATE: they become host only once they finish
     // the identity screen and enter the lobby (so the photo screen doesn't
@@ -329,9 +357,15 @@ final class GameViewModel {
     func createRoom() {
         roomAlert = nil
         displayNames[myName] = playerName
-        // Figma flow: take your photo (identity) BEFORE the lobby. Don't start
-        // hosting yet — advertise only when they actually enter the lobby.
+        // Flow: name -> photo -> lobby. Don't start hosting yet — advertise only
+        // when they actually enter the lobby.
         pendingHostRoom = true
+        state = .nameEntry
+    }
+
+    // Name-entry DONE -> save the display name, go to the photo screen.
+    func finishNameEntry(_ name: String) {
+        setDisplayName(name)
         state = .identity
     }
 
@@ -369,7 +403,9 @@ final class GameViewModel {
     // before. Photo was already captured + broadcast via setMyAvatar.
     func enterLobby() {
         if pendingHostRoom {
-            room.startHosting(name: roomName)
+            // Advertise the room under the HOST'S NAME (e.g. "AGUNG"), so the
+            // finding-room list matches the lobby header "ROOM AGUNG".
+            room.startHosting(name: playerName)
             pendingHostRoom = false
         }
         state = .roomLobby
