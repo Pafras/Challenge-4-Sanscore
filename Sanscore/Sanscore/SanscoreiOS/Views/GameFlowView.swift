@@ -31,11 +31,18 @@ struct GameFlowView: View {
             switch vm.state {
             case .idle:
                 RoomSetupView(vm: vm)
+            case .nameEntry:
+                #if os(iOS)
+                NameEntryView(vm: vm)
+                #else
+                Color.clear.onAppear { vm.finishNameEntry("") }
+                #endif
             case .identity:
                 #if os(iOS)
                 // Take photo (onCapture -> avatar) then swipe down (onEnter ->
                 // lobby). Marleen's morphing identity screen, wired into the flow.
-                IdentityCameraView(onCapture: { vm.setMyAvatar($0) },
+                IdentityCameraView(name: vm.playerName,
+                                   onCapture: { vm.setMyAvatar($0) },
                                    onEnter: { vm.enterLobby() },
                                    onClose: { vm.cancelIdentity() })
                 #else

@@ -62,7 +62,8 @@ enum SusBand: Equatable {
 // Where the game is right now. UI reads this to decide what screen to show.
 enum GameState {
     case idle          // create/join room
-    case identity      // take photo + swipe-down to enter (after create/join, before lobby)
+    case nameEntry     // "what's your name" — after create/join code, before photo
+    case identity      // take photo + swipe-down to enter (after name, before lobby)
     case calibrating
     case roomLobby     // connected, waiting for host to hit start
     case roleReveal    // roulette: colours spin like a slot machine

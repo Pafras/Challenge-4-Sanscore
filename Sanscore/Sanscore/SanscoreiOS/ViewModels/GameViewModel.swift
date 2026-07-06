@@ -253,13 +253,13 @@ final class GameViewModel {
         case let .rename(id, display):
             displayNames[id] = display
         case .joinAccepted:
-            // Host confirmed the code -> we're in. Advance to the photo screen.
+            // Host confirmed the code -> we're in. Name screen, then photo.
             if pendingJoin {
                 pendingJoin = false
                 joinToken &+= 1        // cancel the safety timeout
                 joinError = nil
                 room.stopBrowsing()
-                state = .identity
+                state = .nameEntry
             }
         case .joinRejected:
             // Host says the code was wrong -> instant warning, leave the session,
@@ -340,9 +340,15 @@ final class GameViewModel {
     func createRoom() {
         roomAlert = nil
         displayNames[myName] = playerName
-        // Figma flow: take your photo (identity) BEFORE the lobby. Don't start
-        // hosting yet — advertise only when they actually enter the lobby.
+        // Flow: name -> photo -> lobby. Don't start hosting yet — advertise only
+        // when they actually enter the lobby.
         pendingHostRoom = true
+        state = .nameEntry
+    }
+
+    // Name-entry DONE -> save the display name, go to the photo screen.
+    func finishNameEntry(_ name: String) {
+        setDisplayName(name)
         state = .identity
     }
 

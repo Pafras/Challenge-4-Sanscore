@@ -31,6 +31,8 @@ import CoreImage.CIFilterBuiltins
 
 struct IdentityCameraView: View {
     var initialIndex: Int = 0
+    /// Player's name, shown in the ALL-SET title ("AGUNG READY!!"). Empty = generic.
+    var name: String = ""
     /// Finished, background-replaced photo. Caller passes to vm.setMyAvatar.
     var onCapture: (UIImage) -> Void
     /// Swipe-down "enter" action. Pafras wires this to the room; default = nothing.
@@ -46,11 +48,13 @@ struct IdentityCameraView: View {
     // Pass previewCaptured (a photo) to open straight in the ALL-SET / Slide-to-
     // enter state — used by #Preview so you don't have to tap the shutter first.
     init(initialIndex: Int = 0,
+         name: String = "",
          previewCaptured: UIImage? = nil,
          onCapture: @escaping (UIImage) -> Void,
          onEnter: @escaping () -> Void = {},
          onClose: @escaping () -> Void = {}) {
         self.initialIndex = initialIndex
+        self.name = name
         self.onCapture = onCapture
         self.onEnter = onEnter
         self.onClose = onClose
@@ -108,7 +112,9 @@ struct IdentityCameraView: View {
                 // circle pinned to screen center in BOTH states.
                 VStack {
                     Spacer()
-                    IdentityTitle(text: isTake ? "TAKE YOUR\nPICTURE" : "YOU'RE\nALL SET!!", tilt: isTake ? 3:-3)
+                    IdentityTitle(text: isTake ? "TAKE YOUR\nPICTURE"
+                                        : (name.isEmpty ? "YOU'RE\nALL SET!!" : "\(name.uppercased())\nREADY!!"),
+                                  tilt: isTake ? 3 : -3)
                 }
                 .frame(maxHeight: .infinity)
 
@@ -143,8 +149,7 @@ struct IdentityCameraView: View {
                             .transition(.opacity)
                         Spacer()
                     } else {
-                        Spacer()
-                        swipeDownHint.transition(.opacity)
+                        Spacer()   // finger hint (ThumbSwipe) + START are pinned below
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -162,6 +167,21 @@ struct IdentityCameraView: View {
                             .frame(width: 104, height: 104)
                     }
                     .glassButton()
+                }
+                .transition(.opacity)
+            } else {
+                // ALL-SET: START button pinned at the bottom -> enter the room.
+                // (Swiping the photo down still works too, same onEnter.)
+                VStack {
+                    Spacer()
+                    Button(action: onEnter) {
+                        IdentityTitle(text: "START", size: 34, tilt: 0)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                    }
+                    .buttonStyle(.glass)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
                 }
                 .transition(.opacity)
             }
@@ -182,7 +202,7 @@ struct IdentityCameraView: View {
         }
         .overlay(alignment: .topLeading) {
             Button(action: onClose) {
-                Image(systemName: "chevron.left")
+                Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
@@ -233,18 +253,6 @@ struct IdentityCameraView: View {
                 .frame(width: 52, height: 52)
         }
         .glassButton()
-    }
-
-    private var swipeDownHint: some View {
-        VStack(spacing: 8) {
-            Text("Swipe Down")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(.white)
-            Image(systemName: "chevron.down.2")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white)
-        }.shadow(radius: 3)
-        .opacity(photoOpacity)
     }
 
     // MARK: - Gestures / actions
