@@ -77,17 +77,18 @@ struct PickingRolesView: View {
         1 + CGFloat(sin(t * 1.05 + Double(i) * 1.7)) * 0.18
     }
 
-    // Roam: scatter around center in a ring, plus a slow sine drift per bubble.
+    // Roam: cluster near the MIDDLE and mill around it. Tight base ring + wide
+    // sine drift so the bubbles swarm around the center rather than sit spread out.
     private func drift(_ i: Int, _ count: Int, _ size: CGSize, _ t: Double) -> CGPoint {
         let cx = size.width / 2
         let cy = size.height * 0.5
         let angle = Double(i) / Double(max(1, count)) * 2 * .pi
-        let ring = Double(min(size.width, size.height)) * 0.26
+        let ring = Double(min(size.width, size.height)) * 0.14   // tight -> near middle
         let baseX = cx + CGFloat(cos(angle)) * CGFloat(ring)
         let baseY = cy + CGFloat(sin(angle)) * CGFloat(ring)
         let phase = Double(i) * 1.3
-        let driftX = CGFloat(sin(t * 0.5 + phase)) * 26
-        let driftY = CGFloat(cos(t * 0.42 + phase * 1.3)) * 26
+        let driftX = CGFloat(sin(t * 0.55 + phase)) * 46         // wider roam
+        let driftY = CGFloat(cos(t * 0.47 + phase * 1.3)) * 46
         return CGPoint(x: baseX + driftX, y: baseY + driftY)
     }
 }
