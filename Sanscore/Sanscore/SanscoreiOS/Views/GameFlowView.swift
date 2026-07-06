@@ -50,7 +50,15 @@ struct GameFlowView: View {
             case .roomLobby:
                 RoomLobbyView(vm: vm)
             case .roleReveal:
-                RoleRevealView()
+                RoleRevealView()          // colours spin like a roulette
+            case .roleResult:
+                // Roulette landed -> Agung's per-role reveal screen. Role is
+                // decided in applyTurn before the roulette starts.
+                switch vm.myRole {
+                case .asker:     RoleInterrogatorView()
+                case .answerer:  RoleSuspectView()
+                case .spectator: RoleSpectatorView()
+                }
             case .asking:
                 AskingView(onPress: { vm.askerPressed() },
                            onRelease: { vm.askerReleased() })

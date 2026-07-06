@@ -65,7 +65,8 @@ enum GameState {
     case identity      // take photo + swipe-down to enter (after create/join, before lobby)
     case calibrating
     case roomLobby     // connected, waiting for host to hit start
-    case roleReveal    // roulette animation assigning this device's role
+    case roleReveal    // roulette: colours spin like a slot machine
+    case roleResult    // lands -> shows this device's role screen (Interrogator/Suspect/Spectator)
     case asking
     case answering
     case spectating       // not this round's asker or answerer

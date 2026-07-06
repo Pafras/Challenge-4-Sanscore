@@ -280,18 +280,23 @@ final class GameViewModel {
         currentQuestion = ""
         currentAsker = asker
         currentAnswerer = answerer
+        // Decide THIS device's role NOW so the reveal screen can show the right
+        // one (Interrogator = asker, Suspect = answerer, Spectator = the rest).
+        if myName == asker { myRole = .asker }
+        else if myName == answerer { myRole = .answerer }
+        else { myRole = .spectator }
         state = .roleReveal
         Task {
-            try? await Task.sleep(for: .seconds(2))
-            if myName == asker {
-                myRole = .asker
+            try? await Task.sleep(for: .seconds(1.6))  // roulette colours spin
+            state = .roleResult                        // land on the role screen
+            try? await Task.sleep(for: .seconds(2))    // role reveal animation plays
+            switch myRole {
+            case .asker:
                 state = .asking
-            } else if myName == answerer {
-                myRole = .answerer
+            case .answerer:
                 responseClockStart = Date()
                 state = .answering
-            } else {
-                myRole = .spectator
+            case .spectator:
                 state = .spectating
                 armResultTimeout()
             }
