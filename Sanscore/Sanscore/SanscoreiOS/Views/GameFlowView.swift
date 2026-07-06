@@ -86,13 +86,10 @@ struct GameFlowView: View {
                     RoleSpectatorView()
                     #if DEBUG
                     VStack {
-                        HStack {
-                            Button("Back") { vm.backToStart() }
-                                .buttonStyle(.borderedProminent)
-                                .padding()
-                            Spacer()
-                        }
                         Spacer()
+                        Button("Back") { vm.backToStart() }
+                            .buttonStyle(.borderedProminent)
+                            .padding(.bottom, 32)
                     }
                     #endif
                 }
