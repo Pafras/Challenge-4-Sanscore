@@ -93,7 +93,7 @@ struct PickingRolesView: View {
 }
 
 #Preview {
-    PickingRolesView(players: ["a", "b", "c", "d"],
+    PickingRolesView(players: ["a", "b", "c", "d"], avatars: [:],
                      displayNames: ["a": "AGUNG", "b": "MARLEEN", "c": "SATRIA", "d": "PAFRAS"],
                      colorIndex: ["a": 3, "b": 4, "c": 2, "d": 1])
 }
