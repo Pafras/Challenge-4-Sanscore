@@ -2,9 +2,9 @@
 
 Apple Developer Academy — Challenge 4.
 
-**Sanscore** is an iOS + watchOS party game: a "truth or lie" group game where one
+**Sanscore** is the team making an iOS + watchOS party game: a "SUSS-Meter" group game where one
 player answers a question out loud, the app measures them, and a **sus meter** shows a
-verdict (Truth / Hmm / Liar). It is **entertainment only — not a real lie detector.**
+verdict (Truth / Hmm / Liar). It is **entertainment only — not a clinical lie detector.**
 
 ---
 
@@ -29,11 +29,10 @@ lead owns the async/hardware/integration surface.
 
 *(Our honest guess, before any research.)*
 
-We assumed a convincing lie detector needed a **trained machine-learning model** — feed
-it sensor data, let it learn what "lying" looks like. The plan in our heads was CoreML
-with some training set of truthful vs. deceptive answers. We also assumed we'd need a
-**backend server** to coordinate players and run the heavy inference, and that an LLM
+We assumed a convincing lie detector needed a **heart-rate sensor** — where it will be quite a reliable measurement of deception. 
+We also considers using the Foundations Model, feed it sensor data, let it learn what "lying" looks like. We also assumed we'd need a **backend server** to coordinate players and run the heavy inference, and that an LLM
 would need to "listen" to the audio to judge the answer.
+And also at first, we are considering a way of borrowing your Apple Watch to other players and assume that it won't affect that much
 
 ---
 
@@ -41,10 +40,7 @@ would need to "listen" to the audio to judge the answer.
 
 *(Our actual process, not the conclusion.)*
 
-1. **Framed it as a game, not a tool.** The first real decision was to make Sanscore
-   *entertainment only*. This sidesteps medical/accuracy claims and keeps App Store
-   review happy — and it changes every downstream technical requirement (we no longer
-   need to be "correct," only fun and consistent).
+1. **Framed it as a game, not a tool.** The first real decision was to make SUSS-Meter *entertainment only*. This sidesteps medical/accuracy claims and keeps App Store review happy — and it changes every downstream technical requirement (we no longer need to be "correct," only fun and consistent).
 2. **Broke deception into 4 measurable signals**, each normalized 0–1 as deviation from
    the player's own calibration **baseline**, then fused by a **weighted sum**:
 
@@ -68,7 +64,7 @@ would need to "listen" to the audio to judge the answer.
    UI existed.
 5. **Added a 3-question calibration** to set a per-player baseline (shows your BPM),
    because absolute HR is meaningless — deviation is the signal.
-6. **Built real multiplayer over MultipeerConnectivity** — local rooms, 4-digit room
+6. **Built real multiplayer using MultipeerConnectivity** — local rooms, 4-digit room
    code, turn-order sync, tested Simulator↔device. Only the `RoundResult` (name + score +
    verdict) crosses the network.
 7. **Swapped mocks for real sensors** one at a time: speech (`SFSpeechRecognizer`),
