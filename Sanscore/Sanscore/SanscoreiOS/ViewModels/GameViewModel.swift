@@ -337,14 +337,10 @@ final class GameViewModel {
 
     // --- Room setup ---
 
-    // "Create room" — become host, generate a code, advertise under my name.
-    // The host's room name shown in the nearby-rooms list — the device name.
-    // (iOS 16+ redacts UIDevice.name to a generic "iPhone" for real phones; the
-    // Simulator still shows its full name.)
-    var roomName: String = UIDevice.current.name
-
     // The lobby header title — the host's chosen name ("ROOM AGUNG"). Host uses
-    // its own playerName; a joiner gets it broadcast via .roomInfo.
+    // its own playerName; a joiner gets it broadcast via .roomInfo. The room is
+    // also advertised under this name (see enterLobby) so the finding-room list
+    // matches.
     var roomTitle: String = ""
 
     // Set when the player tapped CREATE: they become host only once they finish
@@ -407,7 +403,9 @@ final class GameViewModel {
     // before. Photo was already captured + broadcast via setMyAvatar.
     func enterLobby() {
         if pendingHostRoom {
-            room.startHosting(name: roomName)
+            // Advertise the room under the HOST'S NAME (e.g. "AGUNG"), so the
+            // finding-room list matches the lobby header "ROOM AGUNG".
+            room.startHosting(name: playerName)
             pendingHostRoom = false
         }
         state = .roomLobby
