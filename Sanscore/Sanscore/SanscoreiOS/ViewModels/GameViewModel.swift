@@ -217,6 +217,12 @@ final class GameViewModel {
         round = 0
         waitToken += 1          // cancel any pending round timeout
         state = .idle
+        // Auto-dismiss the home-screen notice after 3s so it doesn't linger.
+        if let shown = reason {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                if self?.roomAlert == shown { self?.roomAlert = nil }
+            }
+        }
     }
 
     // Soft reset: keep the room + connection, drop back to the lobby.
