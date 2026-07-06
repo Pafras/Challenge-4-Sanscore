@@ -247,6 +247,35 @@ the streamed value. Requires a real Watch to test. v2 — post-iPhone-ship.
 
 ---
 
+## Part H — AirPlay to TV (v2, mentor feedback)
+
+Mentor idea: play from the living room with family — the game on the big screen.
+v2, after the iPhone app is solid.
+
+### The right shape: TV = shared big screen, phones = private controllers
+NOT plain mirroring (that just copies one phone). Instead a dedicated **external-display
+view**: the TV shows the SHARED state (whose turn, the big sus-meter reveal, running
+scoreboard, "entertainment only" disclaimer); each phone stays a private controller
+(your role, push-to-talk, your code). This is the party-game magic the mentor means.
+
+### How (iOS external display)
+- Detect an external screen: `UIScreen.didConnectNotification` / scene-based external
+  display (`UIWindowScene` with the `.external` session role, iOS 16+).
+- Render a second, TV-optimized SwiftUI view on that screen (big fonts, landscape).
+- The **host's phone drives it** — it already holds full room state (turns, results,
+  players). Host mirrors "the shared view" to the TV; its own screen keeps host controls.
+- Works over AirPlay (to Apple TV / AirPlay-capable TV) or a Lightning/USB-C HDMI adapter.
+
+### Fits the architecture
+UI reads `GameViewModel`; the TV view is just ANOTHER SwiftUI view reading the same vm —
+no logic changes, pure presentation. Slots in behind the existing `@Observable` state.
+
+### Cost
+Medium: external-scene plumbing + one TV layout. Needs an Apple TV / adapter to test.
+Pairs well with Part A4 (scoreboard) — the TV is where a running scoreboard shines.
+
+---
+
 ## Sequencing (all after Marleen/Agung layout push merges)
 1. Identity-flow wiring (Pafras's owned task) — unblocks everything.
 2. A1 + A3 (tiny logic, safe now).
