@@ -72,9 +72,9 @@ struct PickingRolesView: View {
 
     // MARK: motion (time-only, no CoreMotion)
 
-    // Breathing: scale oscillates 0.9…1.1, each bubble on its own phase.
+    // Breathing: slower, deeper pulse (~0.82…1.18), each bubble on its own phase.
     private func breathe(_ i: Int, _ t: Double) -> CGFloat {
-        1 + CGFloat(sin(t * 1.6 + Double(i) * 1.7)) * 0.10
+        1 + CGFloat(sin(t * 1.05 + Double(i) * 1.7)) * 0.18
     }
 
     // Roam: scatter around center in a ring, plus a slow sine drift per bubble.

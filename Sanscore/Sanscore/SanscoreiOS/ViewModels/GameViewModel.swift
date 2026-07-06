@@ -297,7 +297,7 @@ final class GameViewModel {
         else { myRole = .spectator }
         state = .roleReveal
         Task {
-            try? await Task.sleep(for: .seconds(1.6))  // roulette colours spin
+            try? await Task.sleep(for: .seconds(3.2))  // "picking roles" bubbles breathe
             state = .roleResult                        // land on the role screen
             try? await Task.sleep(for: .seconds(2))    // role reveal animation plays
             switch myRole {
