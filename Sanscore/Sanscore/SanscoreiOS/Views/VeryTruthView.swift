@@ -1,30 +1,13 @@
 //
-//  VerySusView.swift
+//  VeryTruth.swift
 //  Sanscore
 //
 //  Created by Agung Ananda on 07/07/26.
 //
-//  The "100% SUSS!!" result screen (the most-sus of the four verdicts).
-//
-//  The percentage is DYNAMIC (0–100). It's drawn from the digit image assets
-//  ("0"…"9" and "%") — a hand-made bitmap "font" — so it always matches the
-//  Figma look. See PercentageText below.
-//
-//  Entrance animation, in order:
-//    1. the percentage number fades + pops in,
-//    2. ~at the same time, result-white-bg eases in (diagonal band slides down),
-//    3. result-very-sus (eyes + "SUSS!!") stamps in with a spring bounce.
-//
-//  Assets: result-red-bg (background), result-white-bg (diagonal band),
-//  result-very-sus (eyes + wordmark), 0…9 + % (the number "font").
-//
-//  Standalone — buttons are no-ops by default. Pass real closures + values to
-//  wire it into the game flow.
-//
 
 import SwiftUI
 
-struct VerySusView: View {
+struct VeryTruthView: View {
 
     // ── INPUTS (wire points) ──────────────────────────────────────────────
     /// The sus score to show, 0…100.
@@ -59,7 +42,7 @@ struct VerySusView: View {
     // ─── TUNABLES ─────────────────────────────────────────────────────────
     private let stampWidth: CGFloat = 320     // result-very-sus size
     private let numberHeight: CGFloat = 62     // digit height for the percentage
-    private let numberOffsetY: CGFloat = 6     // nudge the number into the art's gap
+    private let numberOffsetY: CGFloat = 26     // nudge the number into the art's gap
     private let bandWidth: CGFloat = 400       // result-white-bg width (kept proportional)
     private let bandOffsetY: CGFloat = -110     // where the band sits behind the stamp
     private let clusterTopGap: CGFloat = 170    // gap above the stamp cluster
@@ -74,7 +57,7 @@ struct VerySusView: View {
     var body: some View {
         ZStack {
             // Background
-            Image("result-red-bg")
+            Image("result-green-bg")
                 .resizable()
                 .scaledToFill()
                 .ignoresSafeArea()
@@ -82,7 +65,7 @@ struct VerySusView: View {
             // (2) White diagonal band — proportional (scaledToFit, not stretched)
             //     and sized to sit behind the stamp. Eases in by sliding FORWARD
             //     along its own diagonal (up-left -> place), not dropping from the top.
-            Image("result-white-bg")
+            Image("result-white-bg-4")
                 .resizable()
                 .scaledToFit()
                 .frame(width: bandWidth)
@@ -97,7 +80,7 @@ struct VerySusView: View {
                 // sitting on top (higher z so it stays visible as the art stamps).
                 ZStack {
                     // (3) result-very-sus stamps in.
-                    Image("result-very-sus")
+                    Image("very-truth")
                         .resizable()
                         .scaledToFit()
                         .frame(width: stampWidth)
@@ -116,6 +99,7 @@ struct VerySusView: View {
 
                 // Blurb — pulled up close under the stamp (stamp art has
                 // transparent padding, so a negative top offset tightens the gap).
+                Spacer()
                 Text(summaryText)
                     .font(.system(size: 19, weight: .semibold, design: .rounded))
                     .multilineTextAlignment(.center)
@@ -130,7 +114,7 @@ struct VerySusView: View {
                 // A Spacer pushes them to opposite ends, matching the design.
                 HStack(spacing: 0) {
                     Button(action: onLeave) {
-                        Image("exit-button")
+                        Image("exit-button-1")
                             .resizable()
                             .scaledToFit()
                             .frame(width: 72, height: 72)
@@ -143,8 +127,8 @@ struct VerySusView: View {
                     // are blocked until then (.disabled), matching the visual.
                     Button(action: onReady) {
                         ZStack {
-                            Image(allReady ? "player-placeholder-active"
-                                           : "player-placeholder-inactive")
+                            Image(allReady ? "player-placeholder-active-2"
+                                           : "player-placeholder-inactive-2")
                                 .resizable()
                                 .scaledToFit()
                                 .frame(height: 76)
@@ -181,36 +165,13 @@ struct VerySusView: View {
     }
 }
 
-// MARK: - Digit-image "font"
-
-/// Renders an integer + "%" using the hand-made digit image assets ("0"…"9",
-/// "%"). Each glyph keeps its natural width at a fixed height, so any number
-/// 0…100 lays out correctly.
-struct PercentageText: View {
-    var value: Int
-    var digitHeight: CGFloat = 66
-    var spacing: CGFloat = 2
-
-    private var glyphs: [String] {
-        (String(max(0, value)) + "%").map(String.init)
-    }
-
-    var body: some View {
-        HStack(spacing: spacing) {
-            ForEach(Array(glyphs.enumerated()), id: \.offset) { _, g in
-                Image(g)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: digitHeight)
-            }
-        }
-    }
-}
+// NOTE: PercentageText lives in VerySusView.swift — it's shared across all the
+// result screens, so it is NOT redeclared here (doing so is a compile error).
 
 #Preview("100% — waiting (3/4)") {
-    VerySusView(percent: 100, readyCount: 3, totalPlayers: 4)   // READY inactive
+    VeryTruthView(percent: 100, readyCount: 3, totalPlayers: 4)   // READY inactive
 }
 
 #Preview("100% — all ready (4/4)") {
-    VerySusView(percent: 100, readyCount: 4, totalPlayers: 4)   // READY active
+    VeryTruthView(percent: 100, readyCount: 4, totalPlayers: 4)   // READY active
 }
