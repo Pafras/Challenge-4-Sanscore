@@ -65,6 +65,7 @@ enum GameState {
     case nameEntry     // "what's your name" — after create/join code, before photo
     case identity      // take photo + swipe-down to enter (after name, before lobby)
     case calibrating
+    case syncing       // done calibrating, waiting for every device before the reveal (barrier)
     case roomLobby     // connected, waiting for host to hit start
     case roleReveal    // roulette: colours spin like a slot machine
     case roleResult    // lands -> shows this device's role screen (Interrogator/Suspect/Spectator)
@@ -123,4 +124,7 @@ enum RoomMessage: Codable {
     case joinAccepted                            // host -> joiner: code correct, you're in
     case joinRejected                            // host -> joiner: wrong code, leave
     case roomInfo(title: String)                 // host -> joiner: room title (host's name)
+    case inLobby(name: String)                   // any -> all: finished profile setup, show my bubble
+    case ready(name: String)                     // any -> host: done calibrating, ready to reveal
+    case beginReveal                             // host -> all: everyone ready, start the reveal NOW
 }

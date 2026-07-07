@@ -159,6 +159,7 @@ final class GameViewModel {
             // A newcomer won't have our avatar/name yet — resend both.
             if let mine = avatars[myName] { room.send(.profile(name: myName, image: mine, colorIndex: avatarColorIndex[myName] ?? 0)) }
             if let name = displayNames[myName] { room.send(.rename(id: myName, display: name)) }
+            if lobbyMembers.contains(myName) { room.send(.inLobby(name: myName)) }
             // Host tells joiners the room title (its own name) for the lobby header.
             if room.isHost { room.send(.roomInfo(title: playerName)) }
         }
@@ -168,6 +169,13 @@ final class GameViewModel {
     // network can't carry full-size images), store, and broadcast to the room.
     // Chosen background colour index per player (drives the lobby name badge).
     var avatarColorIndex: [String: Int] = [:]
+
+    // Who has FINISHED profile setup (name + photo) and entered the lobby.
+    // A peer connects the moment their code is accepted — while they're still
+    // typing their name — so the lobby only shows players in this set, not
+    // everyone connected. Announced via .inLobby (see enterLobby).
+    var lobbyMembers: Set<String> = []
+    var lobbyPlayers: [String] { room.players.filter { lobbyMembers.contains($0) } }
 
     func setMyAvatar(_ image: UIImage, colorIndex: Int = 0) {
         guard let data = image.jpegThumbnail(maxSide: 160, quality: 0.6) else { return }
@@ -181,6 +189,14 @@ final class GameViewModel {
     // - active asker/answerer left -> this round can't finish -> back to lobby.
     // - anyone else (spectator/lobby) -> keep going, just a toast.
     private func peerLeft(_ name: String) {
+        lobbyMembers.remove(name)
+        // If we're waiting at the reveal barrier, stop waiting on the leaver —
+        // otherwise the host hangs until the 25s timeout.
+        if state == .syncing {
+            revealParticipants.remove(name)
+            readyPlayers.remove(name)
+            checkRevealBarrier()
+        }
         // Ignore drops fired by our own leave — we're already heading to start.
         guard state != .idle else { return }
         // Host left: as a joiner, we lose all peers.
@@ -231,6 +247,7 @@ final class GameViewModel {
         roomAlert = reason
         toast = nil             // don't carry a stray "X left" toast to the start screen
         everConnected = false
+        lobbyMembers = []
         round = 0
         hasPlayedARound = false   // next session's first reveal = LET'S BEGIN again
         waitToken += 1          // cancel any pending round timeout
@@ -263,6 +280,9 @@ final class GameViewModel {
     private func handle(_ message: RoomMessage) {
         switch message {
         case let .turn(asker, answerer):
+            // Still mid-setup (name/photo)? Not in this round — sit it out in
+            // peace; we join the lobby when done and play the next one.
+            guard lobbyMembers.contains(myName) else { return }
             applyTurn(asker: asker, answerer: answerer)
         case let .question(text):
             // Only the answerer needs the question (for the LLM).
@@ -278,6 +298,18 @@ final class GameViewModel {
             avatarColorIndex[name] = colorIndex
         case let .rename(id, display):
             displayNames[id] = display
+        case let .inLobby(name):
+            lobbyMembers.insert(name)
+        case let .ready(name):
+            // Host tallies readiness; fires the reveal once everyone's in.
+            guard room.isHost else { return }
+            readyPlayers.insert(name)
+            checkRevealBarrier()
+        case .beginReveal:
+            // Host says go — every device starts the reveal on THIS message.
+            guard state == .syncing else { return }
+            revealToken &+= 1          // cancel our backstop timeout
+            runRoleSequence()
         case .joinAccepted:
             // Host confirmed the code -> we're in. Name screen, then photo.
             if pendingJoin {
@@ -315,16 +347,57 @@ final class GameViewModel {
         else if myName == answerer { myRole = .answerer }
         else { myRole = .spectator }
 
-        // First round of a session: calibrate this player, then continue into
-        // the role sequence. Later rounds skip straight to it.
-        // ponytail: devices calibrate at their own pace, no done-sync message.
-        // A slow calibrator can trip the 30s result timeout on faster phones —
-        // first round only; add a .calibrated sync message if it bites.
+        // First round of a session: calibrate this player, THEN report ready and
+        // wait at the barrier so every device starts the reveal on the same beat
+        // (calibration takes different real time per phone). Later rounds skip
+        // straight to the barrier (resolves instantly — nobody calibrates).
         if !isCalibrated {
-            afterCalibration = { [weak self] in self?.runRoleSequence() }
+            afterCalibration = { [weak self] in self?.reportReady() }
             startCalibration()
         } else {
-            runRoleSequence()
+            reportReady()
+        }
+    }
+
+    // --- Reveal barrier (keeps every device's calibrate -> reveal in step) ---
+    // Each device calibrates at its own pace; without a barrier the LET'S BEGIN
+    // / picking-roles / role screens land at visibly different times. So every
+    // device announces .ready when done, the host waits for all of them, then
+    // broadcasts .beginReveal — everyone starts the reveal on the same message.
+    private var readyPlayers: Set<String> = []      // host: who has reported ready
+    private var revealParticipants: Set<String> = []// host: who this round waits on
+    private var revealToken = 0                      // cancels a stale barrier timeout
+
+    private func reportReady() {
+        // Solo (no peers): no one to sync with — go straight to the reveal.
+        guard !room.connectedPeers.isEmpty else { runRoleSequence(); return }
+        state = .syncing
+        // Backstop either way: a crashed/slow device must not hang the reveal.
+        armRevealTimeout()
+        if room.isHost {
+            readyPlayers.insert(myName)
+            checkRevealBarrier()
+        } else {
+            room.send(.ready(name: myName))
+        }
+    }
+
+    // Host: all expected players ready -> fire the reveal for everyone at once.
+    private func checkRevealBarrier() {
+        guard room.isHost, revealParticipants.isSubset(of: readyPlayers) else { return }
+        revealToken &+= 1               // cancel the pending timeout
+        room.send(.beginReveal)
+        runRoleSequence()
+    }
+
+    // If a device crashed / never reports, don't wait on it forever.
+    private func armRevealTimeout() {
+        revealToken &+= 1
+        let token = revealToken
+        DispatchQueue.main.asyncAfter(deadline: .now() + 25) { [weak self] in
+            guard let self, self.revealToken == token, self.state == .syncing else { return }
+            if self.room.isHost { self.room.send(.beginReveal) }
+            self.runRoleSequence()
         }
     }
 
@@ -474,6 +547,9 @@ final class GameViewModel {
             room.startHosting(name: playerName)
             pendingHostRoom = false
         }
+        // Setup done — reveal my bubble on everyone's lobby (see lobbyMembers).
+        lobbyMembers.insert(myName)
+        room.send(.inLobby(name: myName))
         state = .roomLobby
     }
 
@@ -484,6 +560,7 @@ final class GameViewModel {
         pendingHostRoom = false
         room.leave()
         everConnected = false
+        lobbyMembers = []
         state = .idle
     }
 
@@ -492,11 +569,15 @@ final class GameViewModel {
     // locally (the host plays too). Only the host calls this.
     func startSession() {
         roomAlert = nil
-        let players = room.players
+        // Only players who finished setup — someone mid-photo can't take a turn.
+        let players = lobbyPlayers
         guard players.count >= 2 else { return }   // need at least an asker + answerer
         let asker = players[round % players.count]
         let answerer = players[(round + 1) % players.count]
         round += 1
+        // Arm the reveal barrier for exactly these players before anyone starts.
+        revealParticipants = Set(players)
+        readyPlayers = []
         room.send(.turn(asker: asker, answerer: answerer))
         applyTurn(asker: asker, answerer: answerer)
     }

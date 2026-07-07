@@ -57,6 +57,11 @@ struct GameFlowView: View {
                 case .warning:     WarningView()
                 case .measuring:   MeasuringHeartRateView(bpm: vm.liveBPM)
                 }
+            case .syncing:
+                // Barrier: this device is done calibrating, waiting for the rest
+                // so the reveal starts on every phone at once. Usually a blink on
+                // later rounds; a couple seconds on round 1 (slowest calibrator).
+                SyncingView()
             case .roomLobby:
                 RoomLobbyView(vm: vm)
             case .roleReveal:
@@ -65,7 +70,7 @@ struct GameFlowView: View {
                 // round of a session, "WHO'S NEXT" on later rounds — then the
                 // "picking roles" bubbles float + breathe while the host assigns.
                 RoleRevealIntro(firstRound: !vm.hasPlayedARound) {
-                    PickingRolesView(players: vm.room.players, avatars: vm.avatars,
+                    PickingRolesView(players: vm.lobbyPlayers, avatars: vm.avatars,
                                      displayNames: vm.displayNames, colorIndex: vm.avatarColorIndex)
                 }
                 #else

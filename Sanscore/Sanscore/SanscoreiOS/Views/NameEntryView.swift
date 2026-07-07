@@ -8,12 +8,17 @@
 // OWNER: Pafras (wired into the flow). Reads vm, computes nothing.
 
 import SwiftUI
+import Combine   // NotificationCenter.publisher for the keyboard notifications
 #if os(iOS)
 
 struct NameEntryView: View {
     @Bindable var vm: GameViewModel
     @State private var name = ""
     @FocusState private var focused: Bool
+    // Whether the keyboard ACTUALLY came up — focused == true is not enough,
+    // iOS can mark the field focused without presenting the keyboard (seen on
+    // device when several peers connect at once). Tracked via notifications.
+    @State private var keyboardShown = false
 
     private var trimmed: String { name.trimmingCharacters(in: .whitespaces) }
 
@@ -72,13 +77,39 @@ struct NameEntryView: View {
         // Pop the keyboard AFTER the screen transition settles. Focusing in
         // onAppear races the root switch's state animation — the field grabs
         // focus mid-transition and the keyboard never shows (Simulator
-        // reproduces it reliably).
+        // reproduces it reliably). A fixed sleep alone isn't enough: on a busy
+        // device the field can end up focused with NO keyboard, and once
+        // focused, tapping it is a no-op — so VERIFY the keyboard appeared and
+        // drop/retake focus until it does.
         .task {
             try? await Task.sleep(for: .seconds(0.5))
-            focused = true
+            for _ in 0..<4 {
+                focused = true
+                try? await Task.sleep(for: .seconds(0.8))
+                if keyboardShown { break }
+                focused = false
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+            keyboardShown = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
+            keyboardShown = false
+        }
+        // Last-resort recovery: field focused but no keyboard -> tapping the
+        // field itself does nothing. A tap anywhere on the screen re-requests it.
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard !keyboardShown else { return }
+            focused = false
+            Task {
+                try? await Task.sleep(for: .milliseconds(100))
+                focused = true
+            }
         }
     }
-
+    
     private func done() {
         guard !trimmed.isEmpty else { return }
         // Drop focus FIRST so the keyboard dismisses with this screen instead

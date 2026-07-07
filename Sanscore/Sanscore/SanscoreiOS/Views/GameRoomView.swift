@@ -14,7 +14,6 @@ import SwiftUI
 
 struct RoomLobbyView: View {
     let vm: GameViewModel
-    @State private var showEditProfile = false
     @State private var showLeaveConfirm = false
 
     // Host's room title = its own name; a joiner shows the broadcast title.
@@ -35,7 +34,7 @@ struct RoomLobbyView: View {
     private var countBadge: some View {
         HStack(spacing: 5) {
             Image(systemName: "person.2.fill")
-            Text("\(vm.room.players.count)")
+            Text("\(vm.lobbyPlayers.count)")
         }
         .font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
     }
@@ -62,10 +61,10 @@ struct RoomLobbyView: View {
 
                 // Balls play in the MIDDLE region only — bounded above the CTA.
                 #if os(iOS)
-                PlayerBubblesPhysics(players: vm.room.players, avatars: vm.avatars,
+                PlayerBubblesPhysics(players: vm.lobbyPlayers, avatars: vm.avatars,
                                      displayNames: vm.displayNames,
                                      colorIndex: vm.avatarColorIndex,
-                                     me: vm.myName) { showEditProfile = true }
+                                     me: vm.myName)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 #else
                 Spacer()
@@ -142,11 +141,6 @@ struct RoomLobbyView: View {
                 onCancel: { showLeaveConfirm = false }
             )
         }
-        #if os(iOS)
-        .sheet(isPresented: $showEditProfile) {
-            EditProfileView(vm: vm)
-        }
-        #endif
     }
 }
 
