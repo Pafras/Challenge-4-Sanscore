@@ -45,7 +45,6 @@ struct IdentityCameraView: View {
     @State private var dragX: CGFloat = 0            // TAKE: live horizontal drag
     @State private var captured: UIImage? = nil      // nil = TAKE, set = ALL-SET
     @State private var dragY: CGFloat = 0            // ALL-SET: drag photo out
-    @State private var chevronBounce = false         // ALL-SET: swipe-down chevron bob
 
     // Pass previewCaptured (a photo) to open straight in the ALL-SET / Slide-to-
     // enter state — used by #Preview so you don't have to tap the shutter first.
@@ -85,18 +84,7 @@ struct IdentityCameraView: View {
 
     var body: some View {
         ZStack {
-            if !isTake {
-                VStack {
-                    Spacer()
-                    ThumbSwipe()
-                        .frame(width: 220, height: 200)
-                        .offset(x: 24)          // nudge right
-                }
-                .allowsHitTesting(false)
-                .transition(.opacity)          // fade in/out, don't pop
-            }
-
-            if !isTake {   // glow only on Slide-to-enter, not Take-a-picture
+            if !isTake {   // glow only on profile-confirm, not Take-a-picture
                 GeometryReader { geo in
                     Ellipse()
                         .fill(Color(hex: "01E0FF"))
@@ -152,9 +140,15 @@ struct IdentityCameraView: View {
                         Spacer()
                     } else {
                         Spacer()
-                        // Swipe-down hints: animated chevron (here) + animated
-                        // finger (ThumbSwipe overlay). No START — that's the lobby.
-                        animatedChevron.transition(.opacity)
+                            .frame(height: 64)
+                        // Profile confirm CTA: JOIN → enter the lobby.
+                        Button(action: onEnter) {
+                            IdentityTitle(text: "JOIN", size: 26, strokeWidth: 4, tilt: 0)
+                        }
+                        .buttonStyle(.sussGlisten)
+                        .padding(.bottom, 56)
+                        .transition(.opacity)
+                        Spacer()
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -166,14 +160,13 @@ struct IdentityCameraView: View {
                 VStack {
                     Spacer()
                     Button(action: capture) {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 40, weight: .semibold))
-                            .foregroundStyle(.white)
+                        CameraGlyph(size: 40)
                             .frame(width: 104, height: 104)
                     }
                     .glassButton()
                 }
                 .transition(.opacity)
+                .padding(.bottom, 32)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)   // fill screen (else shrinks to content)
@@ -191,10 +184,13 @@ struct IdentityCameraView: View {
             .ignoresSafeArea()
         }
         .overlay(alignment: .topLeading) {
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
+            // BACK steps through the whole setup: confirm → retake photo →
+            // (onClose) name entry. Pink chevron on light glass, per Figma.
+            Button {
+                if isTake { onClose() } else { retake() }
+            } label: {
+                StrokedIcon(systemName: "chevron.left", assetName: "icon-back",
+                            size: 18, fill: Color(hex: "E40063"), stroke: .white)
                     .frame(width: 44, height: 44)
             }
             .glassButton()
@@ -235,32 +231,42 @@ struct IdentityCameraView: View {
             .overlay(Circle().strokeBorder(.white, lineWidth: 5))
     }
 
+    // Retake badge — glass circle, PINK camera icon (Figma reference).
     private var retakeBadge: some View {
         Button(action: retake) {
-            Image(systemName: "camera.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 52, height: 52)
+            CameraGlyph(size: 24)
+                .frame(width: 72, height: 72)          // Figma: 72×72 action button
         }
         .glassButton()
     }
 
-    // Bobbing "swipe down" chevron. Pairs with the ThumbSwipe finger.
-    private var animatedChevron: some View {
-        Image(systemName: "chevron.down.2")
-            .font(.system(size: 22, weight: .bold))
-            .foregroundStyle(.white)
-            .shadow(radius: 3)
-            .offset(y: chevronBounce ? 10 : -6)
-            .opacity(photoOpacity)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
-                    chevronBounce = true
-                }
-            }
-    }
-
     // MARK: - Gestures / actions
+
+}
+
+/// Camera icon. Uses the REAL Figma icon if the asset "icon-camera" exists in
+/// Assets.xcassets (export it from Figma as PDF/SVG, tick "Preserve Vector
+/// Data"); until then, falls back to a clean pink SF Symbol.
+/// TODO(marleen): export the Figma camera icon → drop into Assets as
+/// "icon-camera" — it will appear here automatically, no code change.
+struct CameraGlyph: View {
+    var size: CGFloat = 24
+
+    var body: some View {
+        if UIImage(named: "icon-camera") != nil {
+            Image("icon-camera")
+                .resizable()
+                .scaledToFit()
+                .frame(width: size * 1.3, height: size * 1.3)
+        } else {
+            Image(systemName: "camera.fill")
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(Color(hex: "E40063"))
+        }
+    }
+}
+
+extension IdentityCameraView {
 
     // One drag: horizontal cycles colour (TAKE); vertical drags the photo out (ALL-SET).
     private var rowGesture: some Gesture {

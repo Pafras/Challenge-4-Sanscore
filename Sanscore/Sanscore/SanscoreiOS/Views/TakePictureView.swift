@@ -49,11 +49,139 @@ struct EditProfileView: View {
 /// rest echo the game-room bubble colours). Marleen will swap these for real
 /// background images later.
 extension View {
-    /// One Liquid-Glass button style for the whole app. A slight dark tint keeps
-    /// the white icon readable on ANY backdrop (glass already adapts to bg
-    /// luminance; the tint just guarantees icon contrast) — no light/dark code.
-    func glassButton() -> some View {
-        glassEffect(.regular.tint(.black.opacity(0.18)).interactive(), in: Circle())
+    /// Circle ACTION button (X / back / camera badge) — Figma action button:
+    /// light glass (white 50%), white 50% inside stroke 4, soft shadow.
+    /// `dark: true` = game-room variant: 50% radial gradient 3F3F3F -> 000000,
+    /// white 60% stroke (same system as `.sussDark`).
+    /// Icon colour comes from the label (pink for chevrons/camera).
+    @ViewBuilder
+    func glassButton(dark: Bool = false) -> some View {
+        if dark {
+            background {
+                Circle().fill(EllipticalGradient(
+                    colors: [Color(hex: "3F3F3F"), Color(hex: "000000")],
+                    center: .center))
+                .opacity(0.5)
+            }
+            .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 4))
+            .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+        } else {
+            glassEffect(.regular.tint(.white.opacity(0.5)).interactive(), in: Circle())
+                .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 4))
+                .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+        }
+    }
+}
+
+/// The design-system capsule button (Figma "BUTTON" component):
+/// white 50% fill ENABLED → 80% PRESSED, white 50% inside stroke 4pt,
+/// glass + SOFT drop shadow. Label supplies its own styling (pink stroked
+/// title). `glisten: true` adds the sweeping light beam (Figma note on JOIN).
+struct SussButtonStyle: ButtonStyle {
+    var horizontalPadding: CGFloat = 40
+    var glisten = false
+    var dark = false          // dark-screen variant (game room): black glass
+    var tint: Color = .white  // light-variant glass tint
+    /// 50% radial-gradient fill instead of glass (drawer EXIT: FFC1EB -> EB0067).
+    var gradientColors: [Color]? = nil
+
+    func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 24)
+        // Figma buttons: 50% radial gradient, centre -> edge
+        // (elliptical = radial stretched to the button bounds, like Figma).
+        let fill: [Color]? = dark
+            ? [Color(hex: "3F3F3F"), Color(hex: "000000")]
+            : gradientColors
+        let padded = configuration.label
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, 16)
+
+        return Group {
+            if let fill {
+                padded.background {
+                    shape.fill(EllipticalGradient(colors: fill, center: .center))
+                        .opacity(configuration.isPressed ? 0.8 : 0.5)
+                }
+            } else {
+                padded.glassEffect(
+                    .regular.tint(tint.opacity(configuration.isPressed ? 0.8 : 0.5)),
+                    in: shape)
+            }
+        }
+        .overlay { if glisten { GlistenBeam().clipShape(shape) } }
+        // Inside stroke: dark variant = white 60%, light = white 50%.
+        .overlay(shape.strokeBorder(.white.opacity(dark ? 0.6 : 0.5), lineWidth: 4))
+        .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+        .scaleEffect(configuration.isPressed ? 0.97 : 1)
+        .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == SussButtonStyle {
+    static var suss: SussButtonStyle { SussButtonStyle() }
+    /// JOIN-style: same button + sweeping glisten beam ("it's time to join").
+    static var sussGlisten: SussButtonStyle { SussButtonStyle(glisten: true) }
+    /// Dark-screen variant (game room START): black glass, same stroke.
+    static var sussDark: SussButtonStyle { SussButtonStyle(dark: true) }
+}
+
+/// A soft diagonal light band sweeping across the button, looping with a pause.
+private struct GlistenBeam: View {
+    @State private var sweep = false
+
+    var body: some View {
+        GeometryReader { geo in
+            LinearGradient(colors: [.clear, .white.opacity(0.75), .clear],
+                           startPoint: .leading, endPoint: .trailing)
+                .frame(width: geo.size.width * 0.45)
+                .rotationEffect(.degrees(18))
+                .offset(x: sweep ? geo.size.width * 1.3 : -geo.size.width * 0.7)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 1.1)
+                        .delay(0.9)                       // pause between sweeps
+                        .repeatForever(autoreverses: false)) { sweep = true }
+                }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Small icon with a thick rounded outline (Figma style): SF Symbol fill +
+/// stroke via offset copies. If an asset named `assetName` exists it is used
+/// instead (export from Figma → Assets, like "icon-camera").
+struct StrokedIcon: View {
+    var systemName: String
+    var assetName: String? = nil
+    var size: CGFloat = 18
+    var fill: Color = Color(hex: "E40063")
+    var stroke: Color = .white
+    var strokeWidth: CGFloat = 3
+
+    private static let dirs: [CGPoint] = (0..<12).map { i in
+        let a = Double(i) / 12 * 2 * .pi
+        return CGPoint(x: cos(a), y: sin(a))
+    }
+
+    var body: some View {
+        if let assetName, UIImage(named: assetName) != nil {
+            Image(assetName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size * 1.4, height: size * 1.4)
+        } else {
+            ZStack {
+                ForEach(Self.dirs.indices, id: \.self) { i in
+                    Image(systemName: systemName)
+                        .font(.system(size: size, weight: .heavy))
+                        .foregroundStyle(stroke)
+                        .offset(x: Self.dirs[i].x * strokeWidth,
+                                y: Self.dirs[i].y * strokeWidth)
+                }
+                Image(systemName: systemName)
+                    .font(.system(size: size, weight: .heavy))
+                    .foregroundStyle(fill)
+            }
+        }
     }
 }
 
@@ -129,14 +257,15 @@ enum IdentityGradient {
 struct IdentityTitle: View {
     let text: String
     var size: CGFloat = 40
-    var strokeWidth: CGFloat = 5                 // white outline thickness (points OUTSIDE)
-    var fill: Color = Color(hex: "DD30A4")       // pink fill
+    var strokeWidth: CGFloat = 5                 // outline thickness (points OUTSIDE)
+    var fill: Color = Color(hex: "FF2684")       // pink fill
+    var stroke: Color = .white                   // outline colour (drawer title = light blue)
     var tilt: Double                     // degrees; negative = tilt up-right
     var lineHeightMultiple: CGFloat = 0.9        // <1 = tighter lines
 
     var body: some View {
         StrokeTextLabel(text: text, fontSize: size, strokeWidth: strokeWidth,
-                        fill: UIColor(fill), stroke: .white,
+                        fill: UIColor(fill), stroke: UIColor(stroke),
                         lineHeightMultiple: lineHeightMultiple)
             .fixedSize()                          // size to the glyphs
             .rotationEffect(.degrees(tilt))
@@ -241,8 +370,9 @@ final class StrokeTextUIView: UIView {
         ctx.addPath(glyphPath)
         ctx.setLineWidth(strokeW * 2)
         ctx.setStrokeColor(strokeColor.cgColor)
-        ctx.setLineJoin(.miter)
-        ctx.setMiterLimit(10)
+        // Round join: miter spiked on sharp glyph corners (long pointy tips).
+        ctx.setLineJoin(.round)
+        ctx.setLineCap(.round)
         ctx.strokePath()
         ctx.addPath(glyphPath)
         ctx.setFillColor(fillColor.cgColor)

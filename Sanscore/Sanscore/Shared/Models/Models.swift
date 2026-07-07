@@ -78,6 +78,22 @@ enum GameState {
     case result
 }
 
+// Semantic level of a transient toast. Logic-safe (no SwiftUI) so the
+// ViewModel can set it; the UI (ToastView) maps each case to its colours.
+// Matches Satria's design-system Label variants.
+enum ToastStyle {
+    case neutral   // info, e.g. "X left the room"
+    case warning   // caution
+    case danger    // error / round broke
+    case success   // good news
+}
+
+// A transient banner shown over gameplay. Auto-clears in the ViewModel.
+struct Toast: Equatable {
+    var message: String
+    var style: ToastStyle
+}
+
 // What this device is doing in the current round. Only one device per room
 // is .asker and one is .answerer; everyone else is .spectator.
 enum PlayerRole {

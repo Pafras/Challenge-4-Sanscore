@@ -42,31 +42,23 @@ struct RoomLobbyView: View {
 
     var body: some View {
         ZStack {
-            // Dark "box of balls" room.
-            Color.black.ignoresSafeArea()
-            CheckeredBackground().ignoresSafeArea()
-
             VStack(spacing: 12) {
                 // Top bar: close (X) · ROOM code pill · player count.
                 HStack(alignment: .center) {
                     Button { showLeaveConfirm = true } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.white)
+                        // Dark-screen variant: white X, black outline.
+                        StrokedIcon(systemName: "xmark", assetName: "icon-close-dark",
+                                    size: 16, fill: .white, stroke: .black)
                             .frame(width: 44, height: 44)
-                            .background(Circle().fill(.white.opacity(0.18)))
                     }
+                    .glassButton(dark: true)
                     Spacer()
                     roomPill
                     Spacer()
                     countBadge
                 }
-
-                if let alert = vm.roomAlert {
-                    Label(alert, systemImage: "info.circle.fill")
-                        .font(.footnote).foregroundStyle(.orange)
-                        .multilineTextAlignment(.center)
-                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
 
                 // Balls play in the MIDDLE region only — bounded above the CTA.
                 #if os(iOS)
@@ -82,13 +74,12 @@ struct RoomLobbyView: View {
                 // Host CTA = START; player CTA = wait + loading bars.
                 if vm.room.isHost {
                     Button { vm.start() } label: {
-                        IdentityTitle(text: "START", size: 30, tilt: 0)   // pink stroked
+                        IdentityTitle(text: "START", size: 26, strokeWidth: 4, tilt: 0)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 20)
-                            .background(RoundedRectangle(cornerRadius: 22).fill(.white.opacity(0.06)))
-                            .overlay(RoundedRectangle(cornerRadius: 22).stroke(.white.opacity(0.4), lineWidth: 2))
                     }
-                    .padding(.horizontal, 4)
+                    .buttonStyle(.sussDark)          // dark radial glass, per Figma
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
                 } else {
                     VStack(spacing: 12) {
                         Text("Waiting for host to start the game")
@@ -96,7 +87,7 @@ struct RoomLobbyView: View {
                             .foregroundStyle(.white)
                         LoadingBars()
                     }
-                    .padding(.bottom, 8)
+                    .padding(.bottom, 16)
                 }
 
                 #if DEBUG
@@ -106,22 +97,50 @@ struct RoomLobbyView: View {
                     Button("Spectator") { vm.forceRole(.spectator) }
                 }
                 .buttonStyle(.bordered).font(.caption).tint(.white)
+                .padding(.bottom, 4)
                 #endif
             }
-            .padding()
         }
-        .confirmationDialog(
-            vm.room.isHost ? "Close the room?" : "Leave the room?",
-            isPresented: $showLeaveConfirm, titleVisibility: .visible
-        ) {
-            Button(vm.room.isHost ? "Close room" : "Leave", role: .destructive) {
-                vm.leaveRoom()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Room alert as the design-system toast, pinned to the top.
+        .overlay(alignment: .top) {
+            if let alert = vm.roomAlert {
+                SusToastView(toast: Toast(message: alert, style: .neutral)) {
+                    vm.dismissRoomAlert()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(vm.room.isHost
-                 ? "Leaving closes the room for everyone."
-                 : "You'll leave the room and return to the start.")
+        }
+        .animation(.default, value: vm.roomAlert)
+        // Bg OUTSIDE the ZStack children: an ignoresSafeArea child INSIDE a
+        // ZStack expands the whole stack to full screen, pushing content under
+        // the status bar. As .background it fills the screen without touching
+        // the content's safe-area layout.
+        .background {
+            // Dark "box of balls" room — Figma bg (host = plain, player = glow).
+            Image(vm.room.isHost ? "gameroom-host-bg" : "gameroom-player-bg")
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+                .ignoresSafeArea()
+        }
+        // Custom pink drawer (Figma "Leave Room") in a system sheet — smooth
+        // slide + drag-to-dismiss for free.
+        .sheet(isPresented: $showLeaveConfirm) {
+            SussConfirmDrawer(
+                title: vm.room.isHost ? "CLOSE ROOM?" : "LEAVE ROOM?",
+                message: vm.room.isHost
+                    ? "Leaving closes room for everyone."
+                    : "You'll leave the room and return to start.",
+                onConfirm: {
+                    showLeaveConfirm = false
+                    vm.leaveRoom()
+                },
+                onCancel: { showLeaveConfirm = false }
+            )
         }
         #if os(iOS)
         .sheet(isPresented: $showEditProfile) {

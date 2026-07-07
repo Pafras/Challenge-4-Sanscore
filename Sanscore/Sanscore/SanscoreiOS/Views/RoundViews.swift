@@ -207,20 +207,116 @@ struct LoadingView: View {
     }
 }
 
+// The suspense "reading" screen: black bg + a drifting lamp glow (same feel as
+// LetsBeginView), the 4-colour sus meter on top, "Calculating..." below.
+// The needle sweeps while the score is still cooking (targetScore == nil), then
+// eases to the REAL score once GameViewModel hands it over — so where it lands
+// matches the result the player actually got.
+//   score 0.0 = truth  -> needle far RIGHT (green)
+//   score 1.0 = liar    -> needle far LEFT  (red)
 struct CalculatingView: View {
+    /// nil while the LLM/fusion is still running; the real 0...1 score once known.
+    var targetScore: Double?
+
     var body: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            ProgressView()
-                .controlSize(.large)
-            Text("Calculating your answer…")
-                .font(.title3.bold())
-            Text("The judge is thinking…")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
+        ZStack {
+            CalcDriftBackground()
+            VStack(spacing: 36) {
+                Spacer()
+                SusMeter(score: targetScore)
+                Text("Calculating...")
+                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
+                Spacer()
+            }
+            .padding(.bottom, 30)
         }
-        .padding()
+    }
+}
+
+// The gauge: semicircle meter image + the blue teardrop needle pivoting from the
+// hub (center of the flat bottom edge). 180° split in four — red / orange /
+// yellow / green, left to right.
+private struct SusMeter: View {
+    var score: Double?
+
+    private let meterW: CGFloat = 300
+
+    // Needle rotation: 0° = straight up. + = clockwise (right/green),
+    // - = counter-clockwise (left/red). So (0.5 - score) * 180 maps the score.
+    private func angle(for s: Double) -> Double { (0.5 - min(max(s, 0), 1)) * 180 }
+
+    @State private var current: Double = 0
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Image("suss-meter")
+                .resizable()
+                .scaledToFit()
+                .frame(width: meterW)
+
+            // Base sits at the meter's bottom-center = the gauge hub; we rotate
+            // around that base so only the tip swings across the dial.
+            Image("suss-arrow")
+                .resizable()
+                .scaledToFit()
+                .frame(height: meterW * 0.46)
+                .rotationEffect(.degrees(current), anchor: .bottom)
+                .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+        }
+        .frame(width: meterW)
+        .task(id: score) { drive() }
+    }
+
+    private func drive() {
+        if let s = score {
+            // Land on the real score. easeInOut = slow start, gentle settle.
+            withAnimation(.easeInOut(duration: 1.8)) { current = angle(for: s) }
+        } else {
+            // Still computing: sweep the whole dial for suspense.
+            current = -90
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                current = 90
+            }
+        }
+    }
+}
+
+// Dark background with a slow drifting glow — same lamp trick as LetsBeginView.
+private struct CalcDriftBackground: View {
+    private let cycle: Double = 4.0
+    private let lightSize: CGFloat = 460
+    private let maxGlow: Double = 0.5
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            GeometryReader { geo in
+                let size = geo.size
+                let t = (timeline.date.timeIntervalSinceReferenceDate
+                    .truncatingRemainder(dividingBy: cycle)) / cycle
+                let pos = CGPoint(x: (0.30 + 0.40 * t) * size.width,
+                                  y: (0.40 + 0.15 * t) * size.height)
+                let glow = sin(t * .pi) * maxGlow
+
+                ZStack {
+                    Image("black-bg")
+                        .resizable()
+                        .ignoresSafeArea()
+                    Circle()
+                        .fill(RadialGradient(colors: [.white, .clear],
+                                             center: .center,
+                                             startRadius: 0,
+                                             endRadius: lightSize / 2))
+                        .frame(width: lightSize, height: lightSize)
+                        .blur(radius: 40)
+                        .blendMode(.screen)
+                        .position(pos)
+                        .opacity(glow)
+                }
+            }
+        }
+        .ignoresSafeArea()
     }
 }
 
@@ -294,3 +390,7 @@ struct ResultView: View {
         .padding()
     }
 }
+
+#Preview("Calculating (computing)") { CalculatingView(targetScore: nil) }
+#Preview("Calculating -> Liar") { CalculatingView(targetScore: 0.85) }
+#Preview("Calculating -> Truth") { CalculatingView(targetScore: 0.1) }

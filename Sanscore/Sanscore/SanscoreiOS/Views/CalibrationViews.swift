@@ -17,24 +17,82 @@ import SwiftUI
 struct LetsCalibrateView: View {
     var body: some View {
         ZStack {
+            Spacer()
             Image("black-bg")
                 .resizable()
                 .ignoresSafeArea()
 
-            VStack(spacing: 28) {
-                Text("LETS\nCALIBRATE")
-                    .font(.system(size: 44, weight: .heavy, design: .rounded))
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
-
-                // Stand-in for the Figma hand-on-phone illustration.
-                Image(systemName: "hand.point.up.left.fill")
-                    .font(.system(size: 120))
-                    .foregroundStyle(.white.opacity(0.9))
-
+            VStack(spacing: 20) {
+                IdentityTitle(text: "LETS\nCALIBRATE", size: 44, strokeWidth: 5,
+                              fill: .white, stroke: Color(hex: "9A9A9A"), tilt: 0)
+                .shadow(color: .black.opacity(0.35), radius: 6, y: 4)
                 Text("Put your pointy finger on the camera")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.85))
+                CalibrateHandAnimation()
+                    .padding(.top, 48)
+            }
+            .padding(.bottom, 20)
+            VStack {
+                Spacer()
+                Text("Tap anywhere to continue")
+                    .font(.system(size: 18, weight: .regular, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.70))
+            }
+            .padding(.bottom, 14)
+        }
+    }
+}
+
+// Phone (static) + hand whose index finger swings onto the top-left camera
+// lens and covers it (covered pose = the reference art), then swings back —
+// smooth, looping, with a dwell while covered. No pulse/LED overlay.
+// The two SVGs are separate art, so offsets are tuned by eye — nudge the
+// constants below in the Xcode preview if alignment drifts.
+private struct CalibrateHandAnimation: View {
+    @State private var onLens = false   // finger off (side) vs covering the lens
+
+    private let phoneW: CGFloat = 190
+
+    // Hand rest pose = REFERENCE (fingertip covering the top-left lens). Raised
+    // so the finger reaches the lens, not sitting below it.
+    private let handRestX: CGFloat = -5
+    private let handRestY: CGFloat = -20
+    // Hand.svg is ONE path (finger not separable), so we pivot the whole hand
+    // at the wrist: a small angle swings the far fingertip sideways while the
+    // wrist barely moves — reads as "the finger" moving on/off the lens.
+    private let swingAngle: CGFloat = 7   // degrees off-lens
+
+    // Timing: smooth swing, then DWELL covering the lens before swinging back.
+    private let swingDur = 1.1            // slow easeInOut = smooth
+    private let dwellCovered = 1.6        // hold on the lens (reference pose)
+    private let dwellOff = 0.6
+
+    var body: some View {
+        ZStack {
+            Image("calibrate-phone")
+                .resizable()
+                .scaledToFit()
+                .frame(width: phoneW)
+                .offset(y: -60)
+
+            // Hand in front. Rotates a few degrees around the wrist so only the
+            // fingertip swings onto the lens (covered pose = reference).
+            Image("calibrate-hand")
+                .resizable()
+                .scaledToFit()
+                .frame(width: phoneW * 1.32)
+                .rotationEffect(.degrees(onLens ? 0 : Double(swingAngle)),
+                                anchor: .bottom)
+                .offset(x: handRestX, y: handRestY)
+        }
+        // Smooth swing with a dwell at each end.
+        .task {
+            while !Task.isCancelled {
+                withAnimation(.easeInOut(duration: swingDur)) { onLens = true }
+                try? await Task.sleep(for: .seconds(swingDur + dwellCovered))
+                withAnimation(.easeInOut(duration: swingDur)) { onLens = false }
+                try? await Task.sleep(for: .seconds(swingDur + dwellOff))
             }
         }
     }

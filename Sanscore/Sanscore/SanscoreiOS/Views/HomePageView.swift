@@ -30,15 +30,6 @@ struct RoomSetupView: View {
                         .scaledToFit()
                         .frame(width: 300)
 
-                    // Alert (room closed, etc.)
-                    if let alert = vm.roomAlert {
-                        Label(alert, systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote.bold())
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 16).padding(.vertical, 8)
-                            .background(.black.opacity(0.3), in: Capsule())
-                    }
-
                     // JOIN button
                     Button {
                         vm.startBrowsing()
@@ -71,6 +62,19 @@ struct RoomSetupView: View {
                     Spacer()
                 }
             }
+            // Room alert (you left / host closed) as the design-system toast,
+            // pinned to the top — not floating mid-screen under the logo.
+            .overlay(alignment: .top) {
+                if let alert = vm.roomAlert {
+                    SusToastView(toast: Toast(message: alert, style: .neutral)) {
+                        vm.dismissRoomAlert()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.default, value: vm.roomAlert)
             .toolbar(.hidden, for: .navigationBar)
             .fullScreenCover(isPresented: $showBrowser) {
                 NavigationStack {

@@ -1,4 +1,4 @@
-// SwipeToEnterView.swift — repurposed as the identity-flow DEMO harness.
+// ProfileConfirmView.swift — repurposed as the identity-flow DEMO harness.
 //
 // The old standalone "You're all set" stub is superseded: Take-a-picture and
 // Slide-to-enter are now ONE morphing screen (IdentityCameraView). This file
@@ -97,8 +97,8 @@ private struct DemoGameRoom: View {
 }
 
 /// Back-compat: the old stub name now just shows the morphing identity screen,
-/// so any reference to SwipeToEnterView keeps compiling.
-struct SwipeToEnterView: View {
+/// so any reference to ProfileConfirmView keeps compiling.
+struct ProfileConfirmView: View {
     var onEnter: () -> Void = {}
     var body: some View {
         IdentityCameraView(onCapture: { _, _ in }, onEnter: onEnter, onClose: {})
@@ -108,8 +108,8 @@ struct SwipeToEnterView: View {
 #Preview("Identity flow (demo)") {
     IdentityFlowDemo()
 }
-#Preview("Swipe to Enter") {
-    SwipeToEnterView()
+#Preview("Profile Confirm") {
+    ProfileConfirmView()
 }
 
 #endif

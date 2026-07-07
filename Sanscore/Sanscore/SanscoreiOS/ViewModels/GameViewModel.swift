@@ -22,7 +22,8 @@ final class GameViewModel {
     // Shown on the start screen when a room ends unexpectedly (host left, etc.).
     var roomAlert: String?
     // Transient toast over gameplay, e.g. "Budi left". Auto-clears.
-    var leftNotice: String?
+    // Carries a semantic style (neutral/warning/danger/success) for the UI.
+    var toast: Toast?
     // Track whether we ever fully connected, to tell "never joined" from "peer left".
     private var everConnected = false
     // Who's the asker/answerer this round — so we know if a leaver breaks it.
@@ -197,15 +198,24 @@ final class GameViewModel {
 
     // Transient toast that clears itself.
     private var noticeToken = 0
-    private func showLeftNotice(_ text: String) {
-        leftNotice = text
+    private func showLeftNotice(_ text: String, style: ToastStyle = .neutral) {
+        toast = Toast(message: text, style: style)
         noticeToken += 1
         let token = noticeToken
         Task {
             try? await Task.sleep(for: .seconds(3))
-            if token == noticeToken { leftNotice = nil }
+            if token == noticeToken { toast = nil }
         }
     }
+
+    // Manual dismiss (tap the X on the toast).
+    func dismissToast() {
+        noticeToken += 1   // cancel the pending auto-clear
+        toast = nil
+    }
+
+    // Manual dismiss for the persistent room alert (host left / you left).
+    func dismissRoomAlert() { roomAlert = nil }
     
     // User tapped Leave in the lobby — disconnect, back to start with a note on
     // THIS device ("You left"); the others get an "X left" toast via peerLeft.
@@ -219,7 +229,7 @@ final class GameViewModel {
     func endRoom(_ reason: String?) {
         room.leave()
         roomAlert = reason
-        leftNotice = nil        // don't carry a stray "X left" toast to the start screen
+        toast = nil             // don't carry a stray "X left" toast to the start screen
         everConnected = false
         round = 0
         hasPlayedARound = false   // next session's first reveal = LET'S BEGIN again
@@ -645,6 +655,12 @@ final class GameViewModel {
         result.verdict = structureResult.verdict   // the LLM writes the funny line
         lastResult = result
         hasPlayedARound = true
+
+        // Score is known now, but hold on the .calculating screen a beat so its
+        // meter needle can animate to the real score before we reveal .result.
+        // CalculatingView reads lastResult?.score to know where to land.
+        try? await Task.sleep(for: .seconds(2.6))
+
         state = .result
 
         room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict)))

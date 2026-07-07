@@ -27,6 +27,7 @@ struct GameFlowView: View {
     @State private var vm = GameViewModel()   // all mocks by default
 
     var body: some View {
+        ZStack(alignment: .top) {
         VStack {
             switch vm.state {
             case .idle:
@@ -113,7 +114,7 @@ struct GameFlowView: View {
             case .loading:
                 LoadingView()
             case .calculating:
-                CalculatingView()
+                CalculatingView(targetScore: vm.lastResult?.score)
             case .result:
                 if let result = vm.lastResult {
                     ResultView(result: result,
@@ -122,17 +123,20 @@ struct GameFlowView: View {
             }
         }
         .animation(.default, value: vm.state)
-        .overlay(alignment: .top) {
-            if let notice = vm.leftNotice {
-                Label(notice, systemImage: "person.fill.xmark")
-                    .font(.footnote)
-                    .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .padding(.top, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
+
+        // Toast layer — a sibling in the ZStack (not an overlay on the screen
+        // switch) so it always floats ON TOP of every game screen, even the
+        // full-bleed camera/background ones. High zIndex keeps it above any
+        // transitioning view underneath.
+        if let toast = vm.toast {
+            SusToastView(toast: toast) { vm.dismissToast() }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(100)
         }
-        .animation(.default, value: vm.leftNotice)
+        }
+        .animation(.default, value: vm.toast)
     }
 }
 

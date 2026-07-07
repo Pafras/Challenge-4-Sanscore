@@ -47,13 +47,10 @@ struct NameEntryView: View {
                 HStack {
                     Spacer()
                     Button(action: done) {
-                        Text("DONE")
-                            .font(.system(size: 18, weight: .heavy))
-                            .foregroundStyle(trimmed.isEmpty ? .white.opacity(0.6) : .pink)
-                            .padding(.horizontal, 22)
-                            .padding(.vertical, 12)
+                        IdentityTitle(text: "DONE", size: 15, strokeWidth: 3, tilt: 0)
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(SussButtonStyle(horizontalPadding: 16))   // small variant
+                    .opacity(trimmed.isEmpty ? 0.5 : 1)
                     .disabled(trimmed.isEmpty)
                     .padding(.trailing, 24)
                 }
@@ -63,12 +60,11 @@ struct NameEntryView: View {
                 // Close = abandon the create/join (leaves room), return home.
                 // X for consistency with the identity screens.
                 Button { vm.cancelIdentity() } label: {
-                    Image(systemName: "xmark")
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(.pink)
-                        .padding(10)
-                        .background(.ultraThinMaterial, in: Circle())
+                    StrokedIcon(systemName: "xmark", assetName: "icon-close",
+                                size: 16, fill: Color(hex: "E40063"), stroke: .white)
+                        .frame(width: 44, height: 44)
                 }
+                .glassButton()
                 .padding(.leading, 16)
                 .padding(.top, 8)
             }
