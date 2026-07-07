@@ -160,6 +160,10 @@ struct WaitingForResultView: View {
     }
 }
 
+// ponytail: DEAD — the .loading screen was removed from the flow. HR is now
+// captured live during the answer, so runRound goes answering -> .calculating
+// (animated sus-meter) with no finger-on-camera countdown. Kept (GameFlowView
+// still has a .loading case, now unreachable); delete both when confident.
 struct LoadingView: View {
     // Keep in sync with RealHeartRate.sampleWindow.
     private let captureSeconds = 8
@@ -325,11 +329,15 @@ struct ResultView: View {
     var canAdvance: Bool
     var onNext: () -> Void
 
+    // ponytail: ResultView is now DEAD — .result renders Agung's per-band
+    // screens (VeryTruth/KindaTruth/KindaSus/VerySus) in GameFlowView. Kept
+    // only so this file compiles; delete when confident nothing else needs it.
     private var bandColor: Color {
         switch result.band {
-        case .truth: return .green
-        case .hmm:   return .yellow
-        case .liar:  return .red
+        case .veryTruth:  return .green
+        case .kindaTruth: return .yellow
+        case .kindaSus:   return .orange
+        case .verySus:    return .red
         }
     }
 

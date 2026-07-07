@@ -19,14 +19,14 @@ final class SusEngineXCTests: XCTestCase {
         let calm = Signals(heartRate: 72, responseTime: 2.0, speechRate: 2.2, answerText: "yes")
         let r = engine.score(signals: calm, baseline: baseline, structureScore: 0.0)
         XCTAssertEqual(r.score, 0.0, accuracy: 0.001)
-        XCTAssertEqual(r.band, .truth)
+        XCTAssertEqual(r.band, .veryTruth)
     }
 
     func testWorkedExampleIsLiar() {
         let sus = Signals(heartRate: 92, responseTime: 4.1, speechRate: 1.6, answerText: "uh i was home")
         let r = engine.score(signals: sus, baseline: baseline, structureScore: 0.7)
         XCTAssertEqual(r.score, 0.797, accuracy: 0.005)
-        XCTAssertEqual(r.band, .liar)
+        XCTAssertEqual(r.band, .verySus)
     }
 
     func testNormalizeClampsToOne() {

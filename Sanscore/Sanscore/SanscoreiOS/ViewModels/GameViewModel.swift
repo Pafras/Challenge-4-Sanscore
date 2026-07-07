@@ -710,14 +710,18 @@ final class GameViewModel {
     // it to the room. Only the answerer calls this — responseTime is
     // measured from the press-to-talk timestamps in answererPressed().
     private func runRound(responseTime: Double) async {
-        state = .loading   // finishing the live HR capture + transcribing speech
+        // Straight to the animated sus-meter (CalculatingView) — no separate
+        // loading screen. HR was captured LIVE during the answer, so there's
+        // no finger-on-camera countdown to wait on anymore. The meter needle
+        // sweeps (targetScore == nil) while transcribe + LLM run below, then
+        // eases to the real score once lastResult is set.
+        state = .calculating
         let speechResult = await speech.stopAndTranscribe()
         // HR was captured live DURING the answer (started in beginAnswering);
         // this just stops the camera and reads the estimate — near instant.
         let bpm = await heart.finishLiveCapture()
         liveBPM = nil
 
-        state = .calculating   // the LLM judges the answer + fuses the score
         // The LLM is the only step that can fail; fall back to neutral 0.5.
         let structureResult: StructureResult
         if speechResult.text.isEmpty {

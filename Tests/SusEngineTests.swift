@@ -26,7 +26,7 @@ func runSusEngineTests() {
     let calm = Signals(heartRate: 72, responseTime: 2.0, speechRate: 2.2, answerText: "yes")
     let calmResult = engine.score(signals: calm, baseline: baseline, structureScore: 0.0)
     assert(approxEqual(calmResult.score, 0.0), "calm answer should be ~0, got \(calmResult.score)")
-    assert(calmResult.band == .truth, "calm answer should land in Truth band")
+    assert(calmResult.band == .veryTruth, "calm answer should land in Very Truth band")
 
     // 2) The worked example from the design diagram.
     //    HR 92 (base 72, sens 0.3) -> dev 0.278/0.3 = 0.926
@@ -37,7 +37,7 @@ func runSusEngineTests() {
     let sus = Signals(heartRate: 92, responseTime: 4.1, speechRate: 1.6, answerText: "uh i was home")
     let susResult = engine.score(signals: sus, baseline: baseline, structureScore: 0.7)
     assert(approxEqual(susResult.score, 0.797, tol: 0.005), "worked example expected ~0.797, got \(susResult.score)")
-    assert(susResult.band == .liar, "worked example should land in Liar band, got \(susResult.band.label)")
+    assert(susResult.band == .verySus, "worked example should land in Very Sus band, got \(susResult.band.label)")
 
     // 3) normalize() must clamp at 1.0 even for huge deviations.
     let huge = engine.normalize(1000, baseline: 72, sensitivity: 0.3)
