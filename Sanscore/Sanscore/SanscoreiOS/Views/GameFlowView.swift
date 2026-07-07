@@ -122,8 +122,38 @@ struct GameFlowView: View {
                 CalculatingView(targetScore: vm.lastResult?.score)
             case .result:
                 if let result = vm.lastResult {
-                    ResultView(result: result,
-                               canAdvance: vm.canAdvance) { vm.nextRound() }
+                    // Agung's per-band result screen. Same wire points on all four:
+                    // percent = score, summary = LLM verdict, READY = advance.
+                    // ponytail: READY (x/y) shows the current advance model (host/
+                    // solo advances, others wait) via canAdvance — not yet a real
+                    // per-player result ready-up. Add a .resultReady barrier later.
+                    // The big % must AGREE with the verdict word: sus screens show
+                    // sus%, truth screens show truth% (= 100 - sus%). So a very
+                    // truthful answer reads "95% TRUTH", a very sus one "95% SUSS"
+                    // — never "5% TRUTH". Dynamic (e.g. 77 / 64 / 34), not snapped.
+                    let susPercent = Int((result.score * 100).rounded())
+                    let truthPercent = 100 - susPercent
+                    let summary: String? = result.verdict.isEmpty ? nil : result.verdict
+                    let total = max(1, vm.lobbyPlayers.count)
+                    let ready = vm.canAdvance ? total : 0   // only the advancer's READY is live
+                    switch result.band {
+                    case .veryTruth:
+                        VeryTruthView(percent: truthPercent, summary: summary,
+                                      readyCount: ready, totalPlayers: total,
+                                      onReady: { vm.nextRound() }, onLeave: { vm.leaveRoom() })
+                    case .kindaTruth:
+                        KindaTruthView(percent: truthPercent, summary: summary,
+                                       readyCount: ready, totalPlayers: total,
+                                       onReady: { vm.nextRound() }, onLeave: { vm.leaveRoom() })
+                    case .kindaSus:
+                        KindaSusView(percent: susPercent, summary: summary,
+                                     readyCount: ready, totalPlayers: total,
+                                     onReady: { vm.nextRound() }, onLeave: { vm.leaveRoom() })
+                    case .verySus:
+                        VerySusView(percent: susPercent, summary: summary,
+                                    readyCount: ready, totalPlayers: total,
+                                    onReady: { vm.nextRound() }, onLeave: { vm.leaveRoom() })
+                    }
                 }
             }
         }

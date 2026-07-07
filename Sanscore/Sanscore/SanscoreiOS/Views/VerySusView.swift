@@ -195,10 +195,16 @@ struct PercentageText: View {
         (String(max(0, value)) + "%").map(String.init)
     }
 
+    // The "%" asset was renamed to "Percent" ("%" resolves to an empty symbol —
+    // Xcode warns). Digits "0"…"9" keep their names.
+    private func assetName(_ glyph: String) -> String {
+        glyph == "%" ? "Percent" : glyph
+    }
+
     var body: some View {
         HStack(spacing: spacing) {
             ForEach(Array(glyphs.enumerated()), id: \.offset) { _, g in
-                Image(g)
+                Image(assetName(g))
                     .resizable()
                     .scaledToFit()
                     .frame(height: digitHeight)

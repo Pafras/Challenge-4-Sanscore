@@ -36,25 +36,29 @@ struct SusResult {
     var verdict: String
 }
 
-// The three fun buckets the meter shows.
+// The four fun buckets the meter shows — one per result screen (Agung's
+// VeryTruth / KindaTruth / KindaSus / VerySus). Quartiles of the 0…1 score.
 enum SusBand: Equatable {
-    case truth   // 0.0 - 0.35
-    case hmm     // 0.35 - 0.6
-    case liar    // 0.6 - 1.0
+    case veryTruth   // 0.0  - 0.25
+    case kindaTruth  // 0.25 - 0.5
+    case kindaSus    // 0.5  - 0.75
+    case verySus     // 0.75 - 1.0
 
     init(score: Double) {
         switch score {
-        case ..<0.35: self = .truth
-        case ..<0.6:  self = .hmm
-        default:      self = .liar
+        case ..<0.25: self = .veryTruth
+        case ..<0.5:  self = .kindaTruth
+        case ..<0.75: self = .kindaSus
+        default:      self = .verySus
         }
     }
 
     var label: String {
         switch self {
-        case .truth: return "Truth"
-        case .hmm:   return "Hmm"
-        case .liar:  return "Liar"
+        case .veryTruth:  return "Very Truth"
+        case .kindaTruth: return "Kinda Truth"
+        case .kindaSus:   return "Kinda Sus"
+        case .verySus:    return "Very Sus"
         }
     }
 }
