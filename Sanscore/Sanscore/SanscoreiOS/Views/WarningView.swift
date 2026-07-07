@@ -96,6 +96,15 @@ final class TorchCameraUIView: UIView {
         super.init(frame: frame)
         previewLayer.videoGravity = .resizeAspectFill
         backgroundColor = .black          // avoids a flash of nothing before frames arrive
+        // Attach the session to the preview layer HERE, on the main thread,
+        // before any camera work. Doing it later (from the camera queue via
+        // main.async) races session.startRunning() on the queue: assigning
+        // previewLayer.session opens a beginConfiguration transaction, and if
+        // startRunning runs mid-transaction AVFoundation throws
+        // "startRunning may not be called between beginConfiguration and
+        // commitConfiguration" and the app hangs. The session is empty now;
+        // the preview just shows black until configure() + startRunning fill it.
+        previewLayer.session = session
     }
     required init?(coder: NSCoder) { super.init(coder: coder) }
 
@@ -130,12 +139,8 @@ final class TorchCameraUIView: UIView {
         device = cam
         session.addInput(input)
         session.commitConfiguration()
-
-        // Attach the running session to THIS view's preview layer on the main thread.
-        DispatchQueue.main.async { [self] in
-            previewLayer.session = session
-            previewLayer.videoGravity = .resizeAspectFill
-        }
+        // previewLayer.session is already attached in init (see there) — must
+        // NOT be set from this queue, it races startRunning().
     }
 
     // Keep the preview layer filling the view as it lays out.

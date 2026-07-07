@@ -25,6 +25,9 @@ import MultipeerConnectivity
 
 struct GameFlowView: View {
     @State private var vm = GameViewModel()   // all mocks by default
+    // Confirmation before leaving from the RESULT screen (Figma "ENDING GAME
+    // OPTION"): host = END GAME? (closes room), player = LEAVE GAME?.
+    @State private var showResultLeaveConfirm = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -140,19 +143,19 @@ struct GameFlowView: View {
                     case .veryTruth:
                         VeryTruthView(percent: truthPercent, summary: summary,
                                       readyCount: ready, totalPlayers: total,
-                                      onReady: { vm.nextRound() }, onLeave: { vm.leaveRoom() })
+                                      onReady: { vm.nextRound() }, onLeave: { showResultLeaveConfirm = true })
                     case .kindaTruth:
                         KindaTruthView(percent: truthPercent, summary: summary,
                                        readyCount: ready, totalPlayers: total,
-                                       onReady: { vm.nextRound() }, onLeave: { vm.leaveRoom() })
+                                       onReady: { vm.nextRound() }, onLeave: { showResultLeaveConfirm = true })
                     case .kindaSus:
                         KindaSusView(percent: susPercent, summary: summary,
                                      readyCount: ready, totalPlayers: total,
-                                     onReady: { vm.nextRound() }, onLeave: { vm.leaveRoom() })
+                                     onReady: { vm.nextRound() }, onLeave: { showResultLeaveConfirm = true })
                     case .verySus:
                         VerySusView(percent: susPercent, summary: summary,
                                     readyCount: ready, totalPlayers: total,
-                                    onReady: { vm.nextRound() }, onLeave: { vm.leaveRoom() })
+                                    onReady: { vm.nextRound() }, onLeave: { showResultLeaveConfirm = true })
                     }
                 }
             }
@@ -172,6 +175,25 @@ struct GameFlowView: View {
         }
         }
         .animation(.default, value: vm.toast)
+        // Leave/end confirmation drawer for the result screen (Marleen's
+        // SussConfirmDrawer). Host ends the game + closes the room; a player
+        // just leaves. vm.leaveRoom() already branches on host.
+        #if os(iOS)
+        .sheet(isPresented: $showResultLeaveConfirm) {
+            SussConfirmDrawer(
+                title: vm.room.isHost ? "END GAME?" : "LEAVE GAME?",
+                message: vm.room.isHost
+                    ? "You'll end the game and the room will be closed as well."
+                    : "You won't be able to rejoin and have to join a new room to play.",
+                confirmLabel: vm.room.isHost ? "END" : "LEAVE",
+                onConfirm: {
+                    showResultLeaveConfirm = false
+                    vm.leaveRoom()
+                },
+                onCancel: { showResultLeaveConfirm = false }
+            )
+        }
+        #endif
     }
 }
 

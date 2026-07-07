@@ -34,6 +34,14 @@ final class RealHeartRate: NSObject, HeartRateSource, AVCaptureVideoDataOutputSa
     // NOTE: keep this in sync with LoadingView's countdown ring (captureSeconds).
     private let sampleWindow: Double = 8   // seconds of finger-on-lens
 
+    // Smoothed value behind the LIVE readout. The raw per-poll estimate is a
+    // noisy zero-crossing count over a short window, so it can leap 70 -> 159
+    // between ticks — nonsense to a player. We ease the shown number toward the
+    // raw estimate (EMA) and cap how far it can move per poll (slew limit), so
+    // it drifts like a real pulse. Scoring is unaffected (finishLiveCapture uses
+    // the full window). Reset at the start of each capture.
+    private var smoothedBPM: Double?
+
     // Runs a full ~12s capture, then returns the estimated BPM. Falls back to a
     // neutral 75 if the finger wasn't on the lens (too few / flat samples).
     func currentBPM() async -> Double {
@@ -51,17 +59,29 @@ final class RealHeartRate: NSObject, HeartRateSource, AVCaptureVideoDataOutputSa
     // Start collecting and keep the camera running; the answer screen polls
     // liveBPM() for its readout and finishLiveCapture() scores at release.
     func startLiveCapture() async {
+        smoothedBPM = nil          // fresh answer, don't carry the last reading
         if await configureAndStart() == false {
             print("❤️‍🩹 HR live: camera failed to start")
         }
     }
 
-    // Rolling estimate over the most recent ~6s of signal, so the readout
-    // tracks the player instead of averaging their whole answer.
+    // Rolling estimate over the most recent ~6s of signal, then eased so the
+    // shown number can't jump wildly between polls (see smoothedBPM).
     func liveBPM() -> Double? {
         let snapshot = samplesSnapshot()
-        guard let last = snapshot.last else { return nil }
-        return estimateBPM(snapshot.filter { last.t - $0.t <= 6 })
+        guard let last = snapshot.last,
+              let raw = estimateBPM(snapshot.filter { last.t - $0.t <= 6 })
+        else { return smoothedBPM }   // dropout (finger lifted): hold last shown
+
+        let alpha = 0.3        // how fast the readout chases the raw estimate
+        let maxStep = 6.0      // max BPM change per poll (~1s) — real pulses drift
+        if let s = smoothedBPM {
+            let eased = s + alpha * (raw - s)
+            smoothedBPM = min(s + maxStep, max(s - maxStep, eased))
+        } else {
+            smoothedBPM = raw   // seed on the first good reading
+        }
+        return smoothedBPM
     }
 
     func finishLiveCapture() async -> Double {
