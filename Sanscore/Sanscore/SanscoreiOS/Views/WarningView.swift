@@ -34,7 +34,7 @@ struct WarningView: View {
     /// Seconds for one pulse (grow + shrink).
     private let pulseSpeed: Double = 0.7
     /// How strong the pink tint sits over the live camera (0 = none, 1 = hides it).
-    private let tintOpacity: Double = 0.65
+    private let tintOpacity: Double = 0.5
     // ──────────────────────────────────────────────────────────────────────
 
     @State private var pulsing = false
@@ -46,15 +46,16 @@ struct WarningView: View {
             BackCameraPreview()
                 .ignoresSafeArea()
 
-            // Pink art as a see-through tint. .multiply keeps the darks and
-            // washes the feed pink. If it looks wrong, try .screen or just drop
-            // .blendMode and rely on tintOpacity alone.
+            // Pink art as a see-through tint over the live feed.
+            // NOTE: do NOT use .blendMode here — blend modes can't composite with
+            // the camera (a hosted UIKit layer), so the pink would render flat and
+            // hide the feed. Plain .opacity composites correctly over it.
             Image("pink-bg-camera")
                 .resizable()
                 .scaledToFill()
                 .ignoresSafeArea()
-                .blendMode(.multiply)
                 .opacity(tintOpacity)
+                .allowsHitTesting(false)
             #else
             // Simulator / Preview: no camera — show the pink art solid.
             Image("pink-bg-camera")
@@ -90,6 +91,13 @@ final class TorchCameraUIView: UIView {
     private let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "sanscore.warning.camera")
     private var device: AVCaptureDevice?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        previewLayer.videoGravity = .resizeAspectFill
+        backgroundColor = .black          // avoids a flash of nothing before frames arrive
+    }
+    required init?(coder: NSCoder) { super.init(coder: coder) }
 
     func start() {
         Task {
@@ -128,6 +136,12 @@ final class TorchCameraUIView: UIView {
             previewLayer.session = session
             previewLayer.videoGravity = .resizeAspectFill
         }
+    }
+
+    // Keep the preview layer filling the view as it lays out.
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        previewLayer.frame = bounds
     }
 
     /// Torch on = the finger over the lens lights up red (the PPG signal).
