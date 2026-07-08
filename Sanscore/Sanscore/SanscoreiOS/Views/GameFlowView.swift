@@ -144,21 +144,22 @@ struct GameFlowView: View {
                     let total = vm.totalForNext
                     let ready = vm.readyForNextCount
                     let mine = vm.iAmReadyForNext         // I've tapped -> disable my button
+                    let peak = vm.resultBPM              // answerer's recorded HR this round
                     switch result.band {
                     case .veryTruth:
-                        VeryTruthView(percent: truthPercent, summary: summary,
+                        VeryTruthView(percent: truthPercent, peakBPM: peak, summary: summary,
                                       readyCount: ready, totalPlayers: total, iAmReady: mine,
                                       onReady: { vm.markReadyForNext() }, onLeave: { showResultLeaveConfirm = true })
                     case .kindaTruth:
-                        KindaTruthView(percent: truthPercent, summary: summary,
+                        KindaTruthView(percent: truthPercent, peakBPM: peak, summary: summary,
                                        readyCount: ready, totalPlayers: total, iAmReady: mine,
                                        onReady: { vm.markReadyForNext() }, onLeave: { showResultLeaveConfirm = true })
                     case .kindaSus:
-                        KindaSusView(percent: susPercent, summary: summary,
+                        KindaSusView(percent: susPercent, peakBPM: peak, summary: summary,
                                      readyCount: ready, totalPlayers: total, iAmReady: mine,
                                      onReady: { vm.markReadyForNext() }, onLeave: { showResultLeaveConfirm = true })
                     case .verySus:
-                        VerySusView(percent: susPercent, summary: summary,
+                        VerySusView(percent: susPercent, peakBPM: peak, summary: summary,
                                     readyCount: ready, totalPlayers: total, iAmReady: mine,
                                     onReady: { vm.markReadyForNext() }, onLeave: { showResultLeaveConfirm = true })
                     }

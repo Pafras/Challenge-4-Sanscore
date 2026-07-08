@@ -19,6 +19,7 @@ final class GameViewModel {
     var state: GameState = .idle
     var myRole: PlayerRole = .spectator
     var lastResult: SusResult?
+    private(set) var resultBPM: Int?   // answerer's recorded BPM for the shown result
     // Shown on the start screen when a room ends unexpectedly (host left, etc.).
     var roomAlert: String?
     // Transient toast over gameplay, e.g. "Budi left". Auto-clears.
@@ -297,6 +298,7 @@ final class GameViewModel {
             // Asker (waiting) + spectators show it; the answerer already has it.
             guard state == .waitingForResult || state == .spectating else { return }
             lastResult = SusResult(score: result.score, band: SusBand(score: result.score), verdict: result.verdict)
+            resultBPM = result.bpm
             hasPlayedARound = true
             state = .result
         case let .profile(name, image, colorIndex):
@@ -349,6 +351,7 @@ final class GameViewModel {
     // then the LET'S BEGIN / picking-roles sequence.
     private func applyTurn(asker: String, answerer: String) {
         lastResult = nil
+        resultBPM = nil
         nextReady.removeAll()          // fresh ready-up for the new round
         currentQuestion = ""
         currentAsker = asker
@@ -733,6 +736,8 @@ final class GameViewModel {
         // this just stops the camera and reads the estimate — near instant.
         let bpm = await heart.finishLiveCapture()
         liveBPM = nil
+        let recordedBPM = Int(bpm.rounded())   // shown on the result screen + broadcast
+        resultBPM = recordedBPM
 
         // The LLM is the only step that can fail; fall back to neutral 0.5.
         let structureResult: StructureResult
@@ -760,7 +765,7 @@ final class GameViewModel {
 
         state = .result
 
-        room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict)))
+        room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict, bpm: recordedBPM)))
     }
 
     // Only the host (or a solo device) drives the pace. Non-host clients wait
