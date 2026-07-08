@@ -129,10 +129,7 @@ struct MeasuringHeartRateView: View {
 
                 Spacer()
 
-                Text("\u{201C} I swear that\nI'm telling the truth \u{201D}")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
+                KaraokeOath()
 
                 Spacer()
 
@@ -148,6 +145,78 @@ struct MeasuringHeartRateView: View {
                 .padding(.bottom, 40)
             }
         }
+    }
+}
+
+// Spotify-style karaoke: a bright gradient wipes left->right THROUGH the letters
+// over ~8s (the HR capture window) — a continuous pixel-level sweep, not per
+// word. Each line gets a slice of the timeline (weighted by length) so the wipe
+// flows line 1 -> line 2 like reading.
+// ponytail: two fixed lines (not a flow-wrap layout) — matches the design's
+// line break. If the phrase changes, edit the `lines` array.
+private struct KaraokeOath: View {
+    private let lines = ["\u{201C} I swear that", "I'm telling the truth \u{201D}"]
+    private let duration = 8.0
+    @State private var start = Date()
+
+    var body: some View {
+        TimelineView(.animation) { ctx in
+            let elapsed = ctx.date.timeIntervalSince(start)
+            let p = min(max(elapsed / duration, 0), 1)   // 0..1 overall
+            let progress = lineProgress(p)
+            VStack(spacing: 4) {
+                ForEach(Array(lines.enumerated()), id: \.offset) { i, line in
+                    SweepLine(text: line, progress: progress[i])
+                }
+            }
+        }
+        .font(.system(size: 22, weight: .bold, design: .rounded))
+        .foregroundStyle(.white)
+        .onAppear { start = Date() }
+    }
+
+    // Split the 0..1 timeline across lines, weighted by character count, so the
+    // wipe spends longer on longer lines and reads left->right, top->bottom.
+    private func lineProgress(_ p: Double) -> [Double] {
+        let counts = lines.map { Double($0.count) }
+        let total = counts.reduce(0, +)
+        var result: [Double] = []
+        var before = 0.0
+        for c in counts {
+            let s = before / total, e = (before + c) / total
+            result.append(min(max((p - s) / (e - s), 0), 1))
+            before += c
+        }
+        return result
+    }
+}
+
+// One line: dim base text with a bright copy masked by a gradient whose bright
+// edge slides left->right as `progress` goes 0->1. The soft ±0.08 edge is the
+// moving light.
+private struct SweepLine: View {
+    let text: String
+    let progress: Double
+
+    var body: some View {
+        Text(text)
+            .opacity(0.3)
+            .overlay(
+                Text(text).mask(
+                    LinearGradient(
+                        stops: [
+                            // Bright fills [0, progress] with a soft trailing edge.
+                            // clear stop sits AT `progress` so progress==0 = fully
+                            // dim (no left-edge glow before this line's turn).
+                            .init(color: .white, location: 0),
+                            .init(color: .white, location: max(0, progress - 0.08)),
+                            .init(color: .clear, location: progress),
+                            .init(color: .clear, location: 1),
+                        ],
+                        startPoint: .leading, endPoint: .trailing
+                    )
+                )
+            )
     }
 }
 
