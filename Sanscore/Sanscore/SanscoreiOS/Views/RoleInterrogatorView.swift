@@ -8,62 +8,36 @@
 import SwiftUI
 
 struct RoleInterrogatorView: View {
-    @State private var showCard = false
-    @State private var showYoureThe = false
-    @State private var showSuspect = false
-
+    
+    
+    // ─── TUNABLES ─────────────────────────────────────────────────────────
+    private let stickerName = "youre-the-interrogator-new"   // the role sticker
+    private let bgName = "role-interrogator-bg-white"        // grouped blue+white bg
+    private let stickerWidth: CGFloat = 400             // final size
+    private let startScale: CGFloat = 0.002               // size when it first appears
+    private let stickerOffsetY: CGFloat = 30             // 0 = screen middle
+    // ──────────────────────────────────────────────────────────────────────
+    @State private var appeared = false
+   
     var body: some View {
         ZStack {
-            Image("blue-bg")
+            Image(bgName)
                 .resizable()
                 .ignoresSafeArea()
 
-            // White tilted card — slides from right
-            Image("role-suspect-bg")
+            // Sticker grows from `startScale` -> 1, centered (scaleEffect scales
+            // about the center, so it "opens up" from the middle of the screen).
+            Image(stickerName)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 560)
-                .offset(
-                    x: showCard ? 0 : 500,
-                    y: showCard ? 0 : -250)
-
-            // "you're the" — slides from left
-            Image("youre-the")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 440)
-                .offset(
-                    x: showYoureThe ? 0 : -400,
-                    y: -60
-                )
-
-            // "SUSS-PECT" + eyes — stamps down from above
-            Image("role-interrogator")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 400)
-                .offset(y: 105)
-                .scaleEffect(showSuspect ? 1 : 3)
-                .opacity(showSuspect ? 1 : 0)
+                .frame(width: stickerWidth)
+                .offset(y: stickerOffsetY)
+                .scaleEffect(appeared ? 1 : startScale)
+                .opacity(appeared ? 1 : 0)
         }
         .onAppear {
-            // Step 1: white card slides in from right
-            withAnimation(.easeOut(duration: 0.6)) {
-                showCard = true
-            }
-
-            // Step 2: "you're the" slides in from left (after card lands)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                withAnimation(.easeOut(duration: 0.35)) {
-                    showYoureThe = true
-                }
-            }
-
-            // Step 3: "SUSS-PECT" stamps down (after "you're the" settles)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                    showSuspect = true
-                }
+            withAnimation(.spring(response: 0.9, dampingFraction: 0.4)) {
+                appeared = true
             }
         }
     }
