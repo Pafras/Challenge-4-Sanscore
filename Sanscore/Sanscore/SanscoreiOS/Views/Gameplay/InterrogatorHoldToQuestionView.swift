@@ -66,8 +66,8 @@ struct InterrogatorHoldToQuestionView: View {
         // Press the mic = start capturing. Release = done asking -> wait for
         // the answer (locally flips to WAITING; in-flow vm moves the state on).
         .onChange(of: isHolding) { wasHolding, nowHolding in
-            if !wasHolding && nowHolding { onPress?() }
-            if wasHolding && !nowHolding { phase = .waiting; onRelease?() }
+            if !wasHolding && nowHolding { Haptics.impact(.medium); onPress?() }   // mic opens
+            if wasHolding && !nowHolding { Haptics.impact(.soft); phase = .waiting; onRelease?() }   // mic closes
         }
     }
 

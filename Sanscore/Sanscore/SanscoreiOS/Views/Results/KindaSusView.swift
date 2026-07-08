@@ -165,6 +165,7 @@ struct KindaSusView: View {
         // (3) stamp lands after the band has eased in.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             withAnimation(.spring(response: 0.38, dampingFraction: 0.52)) { showStamp = true }
+            Haptics.notify(.warning)   // sus verdict
         }
         // Text + buttons fade in last.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {

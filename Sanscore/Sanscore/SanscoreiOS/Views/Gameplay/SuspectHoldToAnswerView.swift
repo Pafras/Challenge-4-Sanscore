@@ -122,6 +122,7 @@ struct SuspectHoldToAnswerView: View {
         // disabled (waiting) button can't fire the round.
         .onChange(of: isHolding) { _, holding in
             guard isEnabled else { return }
+            Haptics.impact(holding ? .medium : .soft)   // mic opens / closes
             if holding { onPress?() } else { onRelease?() }
         }
     }

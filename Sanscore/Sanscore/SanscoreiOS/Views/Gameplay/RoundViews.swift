@@ -254,6 +254,7 @@ private struct SusMeter: View {
     private func angle(for s: Double) -> Double { (0.5 - min(max(s, 0), 1)) * 180 }
 
     @State private var current: Double = 0
+    @State private var tension = TensionHaptic()   // accelerating drumroll -> snap
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -273,14 +274,17 @@ private struct SusMeter: View {
         }
         .frame(width: meterW)
         .task(id: score) { drive() }
+        .onDisappear { tension.stop() }
     }
 
     private func drive() {
         if let s = score {
             // Land on the real score. easeInOut = slow start, gentle settle.
+            tension.snap()   // heavy hit as the needle locks -> hands off to the verdict haptic
             withAnimation(.easeInOut(duration: 1.8)) { current = angle(for: s) }
         } else {
             // Still computing: sweep the whole dial for suspense.
+            tension.start()   // building drumroll while the needle sweeps
             current = -90
             withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
                 current = 90
