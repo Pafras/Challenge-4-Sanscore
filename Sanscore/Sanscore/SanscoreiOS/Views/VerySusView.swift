@@ -30,6 +30,11 @@ struct VerySusView: View {
     /// The sus score to show, 0…100.
     var percent: Int = 100
 
+    /// The suspect's PEAK (highest) heart rate during the answer. Optional so
+    /// wiring is trivial — nil shows "--".
+    /// TODO(pafras): pass the peak HR, e.g. VerySusView(peakBPM: vm.peakBPM)
+    var peakBPM: Int? = 120
+
     /// The blurb under the stamp. This is meant to hold the **AI summary** —
     /// the Foundation Models (LLM) one-liner explaining *why* the score came out
     /// this way (see StructureAnalyzer). It's Optional so wiring is trivial:
@@ -124,6 +129,12 @@ struct VerySusView: View {
                     .padding(.top, -24)
                     .opacity(showText ? 1 : 0)
 
+                // Peak-BPM card (heart + peak number + live wave). Shared
+                // component — paste this one line into the other result screens.
+                PeakBPMCard(peakBPM: peakBPM)
+                    .padding(.top, 12)
+                    .opacity(showText ? 1 : 0)
+
                 Spacer()
 
                 // Bottom row: leave (left edge) + READY (right edge).
@@ -178,6 +189,58 @@ struct VerySusView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
             withAnimation(.easeOut(duration: 0.4)) { showText = true }
         }
+    }
+}
+
+// MARK: - Peak-BPM card (shared across all result screens)
+
+/// The peak-heart-rate card that sits under the summary: a heart + the highest
+/// BPM, "peak BPM", and a live heartbeat wave — all on the result-wave-placeholder
+/// art. Defined ONCE here and reused by every result screen (VerySus, KindaSus,
+/// VeryTruth, KindaTruth), so just call `PeakBPMCard(peakBPM:)` in the others.
+///
+/// Figma size: 369 × 102. Font: SF Pro (the system font). Colour: white.
+struct PeakBPMCard: View {
+    /// Highest heart rate during the answer. nil -> "--".
+    var peakBPM: Int?
+
+    // ─── TUNABLES ─────────────────────────────────────────────────────────
+    private let cardWidth: CGFloat = 369
+    private let cardHeight: CGFloat = 102
+    private let numberSize: CGFloat = 30
+    private let labelSize: CGFloat = 18
+    // ──────────────────────────────────────────────────────────────────────
+
+    var body: some View {
+        HStack(spacing: 14) {
+            // 1) left column: heart + number, then "peak BPM"
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: numberSize * 0.7))
+                    Text(peakBPM.map(String.init) ?? "--")
+                        .font(.system(size: numberSize, weight: .bold))   // SF Pro
+                        .contentTransition(.numericText(value: Double(peakBPM ?? 0)))
+                        .animation(.snappy, value: peakBPM)
+                }
+                Text("peak BPM")
+                    .font(.system(size: labelSize, weight: .bold))    // SF Pro
+            }
+
+            // 2) live heartbeat wave — beat rate follows the peak BPM.
+            ECGLine(bpm: peakBPM, color: .white, beatWidth: 70, lineWidth: 2)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 22)
+        .frame(width: cardWidth, height: cardHeight)
+        .background(
+            Image("result-wave-placeholder")
+                .resizable()
+                .scaledToFill()
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 24))   // in case bg overflows
     }
 }
 

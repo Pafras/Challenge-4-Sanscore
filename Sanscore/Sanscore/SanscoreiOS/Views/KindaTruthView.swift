@@ -13,6 +13,10 @@ struct KindaTruthView: View {
     /// The sus score to show, 0…100.
     var percent: Int = 100
 
+    /// The suspect's PEAK (highest) heart rate during the answer. nil -> "--".
+    /// TODO(pafras): pass the peak HR, e.g. KindaTruthView(peakBPM: vm.peakBPM)
+    var peakBPM: Int? = 120
+
     /// The blurb under the stamp. This is meant to hold the **AI summary** —
     /// the Foundation Models (LLM) one-liner explaining *why* the score came out
     /// this way (see StructureAnalyzer). It's Optional so wiring is trivial:
@@ -106,6 +110,10 @@ struct KindaTruthView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 32)
                     .padding(.top, -24)
+                    .opacity(showText ? 1 : 0)
+
+                PeakBPMCard(peakBPM: peakBPM)
+                    .padding(.top, 12)
                     .opacity(showText ? 1 : 0)
 
                 Spacer()
