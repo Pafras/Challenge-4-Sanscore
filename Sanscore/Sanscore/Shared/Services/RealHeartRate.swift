@@ -28,7 +28,12 @@ final class RealHeartRate: NSObject, HeartRateSource, AVCaptureVideoDataOutputSa
     private var device: AVCaptureDevice?
 
     // (timestamp seconds, average red brightness) collected while a finger is on.
+    // Guarded by `samplesLock` (NOT the camera queue): the live poll reads this
+    // from the MAIN actor every second, and `queue.sync` there blocked main
+    // behind 30fps frame processing -> UI hitches. A lock is held only for the
+    // append/copy (microseconds), so the readout never stalls the UI.
     private var samples: [(t: Double, v: Double)] = []
+    private let samplesLock = NSLock()
     // ponytail: 8s ~ 8-13 beats, good party-game accuracy (±few BPM). Shorter =
     // snappier but coarser; longer = more accurate. Don't go below ~5s.
     // NOTE: keep this in sync with LoadingView's countdown ring (captureSeconds).
@@ -89,11 +94,13 @@ final class RealHeartRate: NSObject, HeartRateSource, AVCaptureVideoDataOutputSa
         return estimateBPM(samplesSnapshot()) ?? 75
     }
 
-    // samples is only mutated on `queue`; read it there too.
+    // Lock-guarded copy — safe to call from any thread (incl. the MainActor
+    // poll) without blocking on frame processing.
     private func samplesSnapshot() -> [(t: Double, v: Double)] {
-        queue.sync { samples }
+        samplesLock.lock(); defer { samplesLock.unlock() }
+        return samples
     }
-
+    
     // MARK: - Camera setup
 
     private func configureAndStart() async -> Bool {
@@ -118,6 +125,7 @@ final class RealHeartRate: NSObject, HeartRateSource, AVCaptureVideoDataOutputSa
         session.sessionPreset = .low   // low res = less work, plenty for average brightness
         if session.canAddInput(input) { session.addInput(input) }
         output.setSampleBufferDelegate(self, queue: queue)
+        output.alwaysDiscardsLateVideoFrames = true   // no frame backlog -> no queue stall
         output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
         if session.canAddOutput(output) { session.addOutput(output) }
         session.commitConfiguration()
@@ -135,7 +143,7 @@ final class RealHeartRate: NSObject, HeartRateSource, AVCaptureVideoDataOutputSa
             cam.unlockForConfiguration()
         }
 
-        samples.removeAll()
+        samplesLock.withLock { samples.removeAll() }   // withLock: async-safe scoped
         // startRunning blocks — keep it off the main thread.
         await withCheckedContinuation { cont in
             queue.async {
@@ -190,7 +198,7 @@ final class RealHeartRate: NSObject, HeartRateSource, AVCaptureVideoDataOutputSa
 
         let t = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
         let redAvg = Double(total) / Double(count)
-        queue.async { self.samples.append((t: t, v: redAvg)) }
+        samplesLock.lock(); samples.append((t: t, v: redAvg)); samplesLock.unlock()
     }
 
     // MARK: - BPM estimate
