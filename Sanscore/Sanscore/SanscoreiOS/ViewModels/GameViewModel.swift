@@ -197,6 +197,12 @@ final class GameViewModel {
             readyPlayers.remove(name)
             checkRevealBarrier()
         }
+        // On the result screen, a leaver shrinks the ready target — re-check so
+        // the remaining players' READYs can still start the next round.
+        if state == .result {
+            nextReady.remove(name)
+            checkNextBarrier()
+        }
         // Ignore drops fired by our own leave — we're already heading to start.
         guard state != .idle else { return }
         // Host left: as a joiner, we lose all peers.
@@ -310,6 +316,11 @@ final class GameViewModel {
             guard state == .syncing else { return }
             revealToken &+= 1          // cancel our backstop timeout
             runRoleSequence()
+        case let .readyNext(name):
+            // Everyone tallies (so every result screen shows the live x/y); only
+            // the host acts on all-ready.
+            nextReady.insert(name)
+            checkNextBarrier()
         case .joinAccepted:
             // Host confirmed the code -> we're in. Name screen, then photo.
             if pendingJoin {
@@ -338,6 +349,7 @@ final class GameViewModel {
     // then the LET'S BEGIN / picking-roles sequence.
     private func applyTurn(asker: String, answerer: String) {
         lastResult = nil
+        nextReady.removeAll()          // fresh ready-up for the new round
         currentQuestion = ""
         currentAsker = asker
         currentAnswerer = answerer
@@ -752,9 +764,30 @@ final class GameViewModel {
     }
 
     // Only the host (or a solo device) drives the pace. Non-host clients wait
-    // for the host's next-turn broadcast — their result screen shows a waiting
-    // label instead of a Next-round button.
-    var canAdvance: Bool { room.connectedPeers.isEmpty || room.isHost }
+    // --- Result-screen ready-up (every player, incl. host, taps READY) ---
+    // Each device tallies who has tapped; the host starts the next round once
+    // all lobby players are in. Reset per round in applyTurn.
+    private(set) var nextReady: Set<String> = []
+    var readyForNextCount: Int { nextReady.count }
+    var totalForNext: Int { max(1, lobbyPlayers.count) }
+    var iAmReadyForNext: Bool { nextReady.contains(myName) }
+
+    // This device tapped READY on the result screen.
+    func markReadyForNext() {
+        if room.connectedPeers.isEmpty { nextRound(); return }   // solo: no barrier
+        guard !nextReady.contains(myName) else { return }        // one tap only
+        nextReady.insert(myName)
+        room.send(.readyNext(name: myName))
+        checkNextBarrier()
+    }
+
+    // Host: once every player on the result screen has readied, start next round.
+    // (applyTurn clears nextReady for the new round.)
+    private func checkNextBarrier() {
+        guard room.isHost, state == .result else { return }
+        guard nextReady.isSuperset(of: lobbyPlayers) else { return }
+        startSession()
+    }
 
     // "Next round". Multiplayer: the host assigns the next turn (round-robin)
     // and broadcasts it. Solo (no peers): fall back to the single-phone loop.
