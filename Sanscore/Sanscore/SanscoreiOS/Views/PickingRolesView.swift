@@ -19,16 +19,17 @@ struct PickingRolesView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
-            CheckeredBackground().ignoresSafeArea()
+            // Same dark "box of balls" bg as the game room.
+            Image("gameroom-host-bg")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
 
             VStack {
-                Text("PICKING\nROLES")
-                    .font(.system(size: 46, weight: .black)).fontWidth(.expanded)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.55), radius: 0, x: 3, y: 4)
-                    .padding(.top, 60)
+                SussText(text: "PICKING\nROLES", style: .displayTitle,
+                         fill: .white, stroke: Color(hex: "9A9A9A"), tilt: -3)
+                .padding(.top, 60)
+                .multilineTextAlignment(.center)
                 Spacer()
             }
 

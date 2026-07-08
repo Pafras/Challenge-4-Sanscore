@@ -27,7 +27,7 @@ struct InterrogatorHoldToQuestionView: View {
 
     // ─── TUNABLES ─────────────────────────────────────────────────────────
     private let circleSize: CGFloat = 240
-    private let titleWidth: CGFloat = 320
+    private let titleWidth: CGFloat = 340
     private let barCount = 9
     // ──────────────────────────────────────────────────────────────────────
 
@@ -74,23 +74,22 @@ struct InterrogatorHoldToQuestionView: View {
     // MARK: - ASKING
 
     private var askingContent: some View {
+        // Same structure as the suspect answer screen so both match: title top,
+        // hint, then the mic centered between Spacers (no BPM row here, so a
+        // second bottom Spacer balances where the BPM would sit).
         VStack {
-            Image("press-hold-to-question")
+            Image("press-hold-to-question-new")
                 .resizable()
                 .scaledToFit()
                 .frame(width: titleWidth)
                 .padding(.top, 24)
                 .offset(y: 60)
 
-            // Hint, hidden once you start talking.
-            if !isHolding {
-                Text("You'll go first to ask by\nspeaking to the mic.")
-                    .sussFont(.body2)              // design system: Body 2 (18 semibold)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white.opacity(0.85))
-                    .padding(.top, 80)
-                    .transition(.opacity)
-            }
+            Text("You'll go first to ask by\nspeaking to the mic.")
+                .sussFont(.body2)              // design system: Body 2 (18 semibold)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.white.opacity(0.85))
+                .padding(.top, 80)
 
             Spacer()
 
@@ -98,11 +97,13 @@ struct InterrogatorHoldToQuestionView: View {
                 size: circleSize,
                 barCount: barCount,
                 isEnabled: true,
-                isHolding: $isHolding
+                isHolding: $isHolding,
+                pressedColors: [Color(hex: "01E0FF"), Color(hex: "002AF3")]
             )
+            .offset(y: -40)
 
             Spacer()
-            Spacer()   // no BPM row — keep the button vertically centered-ish
+            Spacer()   // balances the missing BPM row (suspect screen has one)
         }
         .transition(.opacity)
     }

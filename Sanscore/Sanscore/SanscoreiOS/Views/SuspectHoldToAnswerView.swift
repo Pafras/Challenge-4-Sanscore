@@ -77,22 +77,19 @@ struct SuspectHoldToAnswerView: View {
                 .allowsHitTesting(false)
 
             VStack {
-                Image("press-hold-to-answer")
+                Image("press-hold-to-answer-new")
                     .resizable()
                     .scaledToFit()
                     .frame(width: titleWidth)
                     .padding(.top, 24)
                     .offset(y: 60)
 
-                // Only shown while disabled — explains why the button is inert.
-                if !isEnabled {
-                    Text("The button will be active after\ninvestigator done asking.")
-                        .sussFont(.body2)          // design system: Body 2 (18 semibold)
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(.white.opacity(0.85))
-                        .padding(.top, 80)
-                        .transition(.opacity)
-                }
+                // Subtitle on every state (design shows it always).
+                Text("The button will be active after\ninvestigator done asking.")
+                    .sussFont(.body2)          // design system: Body 2 (18 semibold)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .padding(.top, 80)
 
                 Spacer()
 
@@ -102,6 +99,7 @@ struct SuspectHoldToAnswerView: View {
                     isEnabled: isEnabled,
                     isHolding: $isHolding
                 )
+                .offset(y: -40)                // sit a little higher
 
                 Spacer()
 
@@ -139,31 +137,30 @@ struct MicHoldButton: View {
     var barCount: Int
     var isEnabled: Bool
     @Binding var isHolding: Bool
+    /// Pressed-state radial fill (centre -> edge). Default = suspect red;
+    /// interrogator passes blue.
+    var pressedColors: [Color] = [Color(hex: "BE0003"), .black]
+
+    // pressed = held AND enabled (a disabled button can't be pressed).
+    private var pressed: Bool { isHolding && isEnabled }
 
     var body: some View {
         ZStack {
-            if isHolding {
-                WaveformBars(barCount: barCount)
-                    .frame(width: size * 0.5, height: size * 0.42)
-                    .transition(.opacity)
-            } else {
-                Image("mic-logo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: size * 0.30)
-                    .opacity(isEnabled ? 1 : 0.5)     // faded when disabled
-                    .transition(.opacity)
-            }
+            micIcon
         }
         .frame(width: size, height: size)
-        // Liquid Glass — the native translucent material. .interactive() lets it
-        // react to touch. Falls back gracefully on the circle shape.
-        .glassEffect(.regular.interactive(), in: Circle())
+        // FILL: pressed = 50% radial BE0003 -> black; else = 50% white.
+        .background {
+            Circle().fill(fillStyle)
+        }
+        // STROKE: white 50%, 5px, INSIDE the edge.
         .overlay(
-            Circle().strokeBorder(.white.opacity(isEnabled ? 0.35 : 0.2), lineWidth: 2)
+            Circle().strokeBorder(.white.opacity(0.5), lineWidth: 5)
         )
-        .opacity(isEnabled ? 1 : 0.65)
-        .scaleEffect(isHolding ? 0.96 : 1.0)
+        .clipShape(Circle())
+        // Whole button 50% opacity when disabled.
+        .opacity(isEnabled ? 1 : 0.5)
+        .scaleEffect(pressed ? 0.96 : 1.0)
         .animation(.easeOut(duration: 0.15), value: isHolding)
         .contentShape(Circle())
         // Hold anywhere on the circle: press = start, release = stop.
@@ -179,6 +176,28 @@ struct MicHoldButton: View {
         }
         .accessibilityLabel("Hold to talk")
         .accessibilityAddTraits(.isButton)
+    }
+
+    // Icon: disabled = grey mic-disabled asset; enabled = white mic;
+    // pressed = pink mic. (mic-logo tinted via template rendering.)
+    // Brand mic art as-is (its own colours): mic-logo when enabled/pressed,
+    // mic-disabled when disabled.
+    @ViewBuilder private var micIcon: some View {
+        Image(isEnabled ? "mic-logo" : "mic-disabled")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 56)
+    }
+
+    // Fill: pressed = 50% radial BE0003 -> black; else = 50% white.
+    private var fillStyle: AnyShapeStyle {
+        if pressed {
+            return AnyShapeStyle(RadialGradient(
+                colors: pressedColors.map { $0.opacity(0.5) },
+                center: .center, startRadius: 0, endRadius: size / 2))
+        } else {
+            return AnyShapeStyle(Color.white.opacity(0.5))
+        }
     }
 }
 
