@@ -89,8 +89,10 @@ struct GameFlowView: View {
                 }
             case .asking:
                 // Interrogator's hold-to-question mic (Agung's Figma screen).
+                // Ask for mic/speech HERE (first screen that talks), not at app open.
                 InterrogatorHoldToQuestionView(onPress: { vm.askerPressed() },
                                                onRelease: { vm.askerReleased() })
+                    .task { _ = await RealSpeechCapture.requestPermission() }
             case .fingerCheck:
                 // "PUT FINGER ON CAMERA PLZZZ" — live camera bg (torch on), so
                 // the suspect lines their finger up before the answer starts.
@@ -103,6 +105,9 @@ struct GameFlowView: View {
                 SuspectHoldToAnswerView(bpm: vm.liveBPM,
                                         onPress: { vm.answererPressed() },
                                         onRelease: { vm.answererReleased() })
+                    // Answerer may skip .asking (solo asker is another device),
+                    // so request mic/speech here too — no-op if already granted.
+                    .task { _ = await RealSpeechCapture.requestPermission() }
             case .spectating:
                 // Spectator stays on the "you're the spectator" screen (not the
                 // old "watching this round" waiting view).
