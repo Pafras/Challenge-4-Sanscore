@@ -537,9 +537,9 @@ final class GameViewModel {
         }
     }
 
-    // Swipe-down on the identity screen -> actually enter the lobby. If they
-    // tapped CREATE, THIS is when the room opens (advertising starts) — not
-    // before. Photo was already captured + broadcast via setMyAvatar.
+    // JOIN on the identity screen -> actually enter the lobby. If they tapped
+    // CREATE, THIS is when the room opens (advertising starts) — not before.
+    // Photo was already captured + broadcast via setMyAvatar.
     func enterLobby() {
         if pendingHostRoom {
             // Advertise the room under the HOST'S NAME (e.g. "AGUNG"), so the
