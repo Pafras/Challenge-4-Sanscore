@@ -18,6 +18,18 @@ struct JoinRoomView: View {
     @State private var showCodeEntry = false
     @State private var digits: [String] = ["", "", "", ""]
     @State private var focusIndex = 0
+    @State private var codeCardHeight: CGFloat = 560   // measured -> sheet detent
+    @State private var shakes = 0                      // +1 per wrong code -> shake anim
+    @State private var showWrongToast = false
+
+    // Pass previewShowCode: true to open straight on the code-entry card —
+    // used by #Preview (no nearby rooms there, so no room to tap).
+    init(vm: GameViewModel, dismissAll: @escaping () -> Void,
+         previewShowCode: Bool = false) {
+        self.vm = vm
+        self.dismissAll = dismissAll
+        _showCodeEntry = State(initialValue: previewShowCode)
+    }
 
     var body: some View {
         ZStack {
@@ -60,24 +72,12 @@ struct JoinRoomView: View {
                 Spacer()
             }
 
-            // Code entry overlay
-            if showCodeEntry {
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showCodeEntry = false
-                        }
-                        selected = nil
-                    }
-
-                VStack {
-                    Spacer()
-                    codeEntryCard
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+        }
+        // Native sheet = system slide/drag/dim for free; the drawer styling
+        // (pink-bg, grabber, corner 40) matches SussConfirmDrawer.
+        .sussDrawerDim(showCodeEntry)   // design system: drawers dim darker
+        .sheet(isPresented: $showCodeEntry, onDismiss: { selected = nil }) {
+            codeEntryCard
         }
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -97,70 +97,130 @@ struct JoinRoomView: View {
     // MARK: - Code Entry Card
 
     private var codeEntryCard: some View {
-        VStack(spacing: 14) {
-            Capsule()
-                .fill(.white.opacity(0.4))
-                .frame(width: 40, height: 5)
-                .padding(.top, 12)
+        // Same drawer system as SussConfirmDrawer (pink-bg, custom grabber,
+        // corner 40, content-hugging detent) + the ENTER CODE keypad content.
+        //
+        cardBody
+            .frame(maxWidth: .infinity)
+            // Content height -> detent, so the sheet hugs the keypad exactly
+            // (same trick as SussConfirmDrawer).
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                codeCardHeight = $0
+            }
+            .presentationDetents([.height(codeCardHeight)])
+            .ignoresSafeArea(edges: .bottom)
+            .presentationDragIndicator(.hidden)      // custom grabber above
+            .presentationCornerRadius(40)
+            .presentationBackground {
+                // Solid pink UNDER the image: scaledToFill can undershoot the
+                // sheet's rounded corners by a hair, letting the black dim layer
+                // ring through — the base colour hides that seam.
+                ZStack(alignment: .top) {
+                    Color(hex: "F27CD8")
+                    Image("pink-bg")                 // same bg as the homepage
+                        .resizable()
+                        .scaledToFill()
+                }
+                .clipped()
+                // The keypad content stops above the home indicator, so the
+                // pink bg showed as a strip under the lavender panel. Paint
+                // that bottom zone lavender to read as one continuous panel.
+                .overlay(alignment: .bottom) {
+                    Color(hex: "DEC7F2").frame(height: 60)
+                }
+            }
+            // "Wrong Code!" toast pops in briefly over the title area (the sheet
+            // clips its bounds, so it can't float above the drawer).
+            .overlay(alignment: .top) {
+                if showWrongToast {
+                    SusToastView(toast: Toast(message: "Wrong Code!", style: .danger),
+                                 icon: "exclamationmark.triangle.fill")
+                        .padding(.top, 52)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(response: 0.35, dampingFraction: 0.8),
+                       value: showWrongToast)
+        // A failed code: buzz + shake the boxes + clear digits + toast.
+        .onChange(of: vm.joinError) { _, err in
+            if err != nil {
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                withAnimation(.easeInOut(duration: 0.45)) { shakes += 1 }
+                resetCode()
+                showWrongToast = true
+                Task {
+                    try? await Task.sleep(for: .seconds(1))
+                    showWrongToast = false
+                }
+            }
+        }
+    }
 
-            Image("enter-code")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 260)
+    private var cardBody: some View {
+        VStack(spacing: 20) {
+            // Grabber: 64 wide, white 50% fill, white 70% OUTSIDE stroke 4.
+            Capsule().fill(.white.opacity(0.5))
+                .overlay(Capsule().inset(by: -2)
+                    .stroke(.white.opacity(0.7), lineWidth: 4))
+                .frame(width: 64, height: 10)
+                .padding(.top, 18)
 
-            // 4 digit boxes
-            HStack(spacing: 12) {
+            // Large Title 31, design-system stroked text (same combo as
+            // SussConfirmDrawer) instead of the fixed-size image asset.
+            IdentityTitle(text: "ENTER CODE", size: 31, strokeWidth: 5,
+                          fill: Color(hex: "2A1AE8"), stroke: Color(hex: "8FE0FF"),
+                          tilt: 0)
+                .padding(.top, 6)
+
+            // 4 tall digit boxes. Figma: all boxes fill B3008B 30%; stroke
+            // white 5px — 80% focused, 50% filled & idle.
+            HStack(spacing: 8) {
                 ForEach(0..<4, id: \.self) { i in
                     ZStack {
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(.white.opacity(0.15))
+                        RoundedRectangle(cornerRadius: 24)
+                            .fill(Color(hex: "B3008B").opacity(0.3))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 14)
+                                RoundedRectangle(cornerRadius: 24)
                                     .strokeBorder(
-                                        .white.opacity(i == focusIndex ? 0.6 : 0.2),
-                                        lineWidth: 2
+                                        .white.opacity(i == focusIndex ? 0.8 : 0.5),
+                                        lineWidth: 5
                                     )
                             )
 
                         if digits[i].isEmpty && i == focusIndex {
-                            RoundedRectangle(cornerRadius: 1)
+                            RoundedRectangle(cornerRadius: 1.5)
                                 .fill(.white)
-                                .frame(width: 2, height: 30)
+                                .frame(width: 3, height: 64)
                         } else {
                             Text(digits[i])
-                                .font(.system(size: 36, weight: .bold))
+                                .font(.system(size: 56, weight: .heavy))
+                                .fontWidth(.expanded)
                                 .foregroundStyle(.white)
                         }
                     }
-                    .frame(width: 65, height: 72)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 118)
                 }
             }
-            .padding(.horizontal, 24)
-
-            // Wrong-code warning. Stays on the card; user retypes.
-            if let err = vm.joinError {
-                Label(err, systemImage: "exclamationmark.triangle.fill")
-                    .font(.footnote.bold())
-                    .foregroundStyle(.yellow)
-                    .padding(.horizontal, 24)
-            }
+            .padding(.horizontal, 20)
+            // Wrong code -> quick side-to-side shake of the whole box row.
+            .modifier(ShakeEffect(animatableData: CGFloat(shakes)))
 
             numpadView
-                .padding(.horizontal, 16)
-                .padding(.bottom, 20)
         }
-        .background(
-            .ultraThinMaterial,
-            in: RoundedRectangle(cornerRadius: 24)
-        )
-        .padding(.horizontal, 12)
-        .padding(.bottom, 8)
-        // A failed code buzzes + clears the boxes so the player can retype.
-        .onChange(of: vm.joinError) { _, err in
-            if err != nil {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
-                resetCode()
-            }
+    }
+
+    // MARK: - Shake
+
+    /// Horizontal shake: animatableData +1 = one full shake cycle set.
+    private struct ShakeEffect: GeometryEffect {
+        var travel: CGFloat = 7    // px left/right
+        var cycles: CGFloat = 3    // wiggles per trigger
+        var animatableData: CGFloat
+
+        func effectValue(size: CGSize) -> ProjectionTransform {
+            ProjectionTransform(CGAffineTransform(
+                translationX: travel * sin(animatableData * .pi * 2 * cycles), y: 0))
         }
     }
 
@@ -173,12 +233,14 @@ struct JoinRoomView: View {
             ["7", "8", "9"],
             ["", "0", "⌫"]
         ]
-        return VStack(spacing: 8) {
+        // Light lavender panel with its own rounded top corners, keys = white
+        // rounded rects with dark digits (Figma numpad).
+        return VStack(spacing: 12) {
             ForEach(rows, id: \.self) { row in
-                HStack(spacing: 8) {
+                HStack(spacing: 12) {
                     ForEach(row, id: \.self) { key in
                         if key.isEmpty {
-                            Color.clear.frame(height: 50)
+                            Color.clear.frame(height: 56)
                         } else {
                             Button {
                                 handleKey(key)
@@ -189,21 +251,34 @@ struct JoinRoomView: View {
                                             .font(.title2.weight(.semibold))
                                     } else {
                                         Text(key)
-                                            .font(.system(size: 24, weight: .semibold))
+                                            .font(.system(size: 28, weight: .semibold))
                                     }
                                 }
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.black.opacity(0.85))
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 50)
+                                .frame(height: 56)
                                 .background(
-                                    .white.opacity(0.85),
-                                    in: RoundedRectangle(cornerRadius: 12)
+                                    .white.opacity(0.9),
+                                    in: RoundedRectangle(cornerRadius: 14)
                                 )
                             }
                         }
                     }
                 }
             }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .padding(.bottom, 12)
+        .background {
+            // ignoresSafeArea on the GRADIENT (not the keys) stretches the
+            // lavender panel to the physical bottom edge — no pink strip under
+            // the keypad, like the native iOS keyboard.
+            LinearGradient(colors: [Color(hex: "F3E8FA"), Color(hex: "DEC7F2")],
+                           startPoint: .top, endPoint: .bottom)
+                .clipShape(UnevenRoundedRectangle(topLeadingRadius: 36,
+                                                  topTrailingRadius: 36))
+                .ignoresSafeArea(edges: .bottom)
         }
     }
 
@@ -222,12 +297,18 @@ struct JoinRoomView: View {
                 focusIndex += 1
             } else {
                 let fullCode = digits.joined()
-                if fullCode.count == 4, let host = selected {
-                    // Invite but STAY on the card. Correct code -> we connect and
-                    // the view switches to the identity screen. Wrong code ->
-                    // vm.joinError fills in and the digits reset for a retry
-                    // (see .onChange in codeEntryCard). Don't close the card here.
-                    vm.join(host, code: fullCode)
+                if fullCode.count == 4 {
+                    if let host = selected {
+                        // Invite but STAY on the card. Correct code -> we connect
+                        // and the view switches to the identity screen. Wrong code
+                        // -> vm.joinError fills in and the digits reset for a retry
+                        // (see .onChange in codeEntryCard). Don't close the card.
+                        vm.join(host, code: fullCode)
+                    } else {
+                        // No room selected = #Preview (real flow always has one).
+                        // Fake a wrong code so the shake + toast can be tested.
+                        vm.joinError = "Wrong code"
+                    }
                 }
             }
         }
@@ -239,9 +320,15 @@ struct JoinRoomView: View {
     }
 }
 
-#Preview {
+#Preview("Room list") {
     NavigationStack {
         JoinRoomView(vm: GameViewModel(), dismissAll: {})
+    }
+}
+
+#Preview("Enter code card") {
+    NavigationStack {
+        JoinRoomView(vm: GameViewModel(), dismissAll: {}, previewShowCode: true)
     }
 }
 #endif
