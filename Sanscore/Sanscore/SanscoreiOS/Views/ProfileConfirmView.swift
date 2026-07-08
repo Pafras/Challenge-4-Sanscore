@@ -109,7 +109,13 @@ struct ProfileConfirmView: View {
     IdentityFlowDemo()
 }
 #Preview("Profile Confirm") {
-    ProfileConfirmView()
+    // Seed a fake photo so the preview opens STRAIGHT in the confirm ("ALL SET")
+    // state — no need to tap the shutter first.
+    let photo = UIGraphicsImageRenderer(size: .init(width: 220, height: 220)).image { ctx in
+        UIColor(red: 1, green: 0.42, blue: 0.42, alpha: 1).setFill()
+        ctx.fill(CGRect(x: 0, y: 0, width: 220, height: 220))
+    }
+    return IdentityCameraView(name: "Marleen", previewCaptured: photo, onCapture: { _, _ in })
 }
 
 #endif

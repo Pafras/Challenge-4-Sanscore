@@ -133,9 +133,12 @@ private struct GlistenBeam: View {
         GeometryReader { geo in
             LinearGradient(colors: [.clear, .white.opacity(0.75), .clear],
                            startPoint: .leading, endPoint: .trailing)
-                .frame(width: geo.size.width * 0.45)
+                // Taller than the button so the 18°-tilted band still covers the
+                // full height (same height = corners crop -> beam looks short).
+                .frame(width: geo.size.width * 0.45, height: geo.size.height * 2.4)
                 .rotationEffect(.degrees(18))
-                .offset(x: sweep ? geo.size.width * 1.3 : -geo.size.width * 0.7)
+                .position(x: 0, y: geo.size.height / 2)
+                .offset(x: sweep ? geo.size.width * 1.5 : -geo.size.width * 0.5)
                 .onAppear {
                     withAnimation(.easeInOut(duration: 1.1)
                         .delay(0.9)                       // pause between sweeps
