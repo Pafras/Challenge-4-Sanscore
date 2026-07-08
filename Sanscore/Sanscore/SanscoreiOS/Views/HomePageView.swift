@@ -21,42 +21,38 @@ struct RoomSetupView: View {
                     .resizable()
                     .ignoresSafeArea()
 
-                VStack(spacing: 20) {
+                VStack(spacing: 5) {
                     Spacer()
 
                     // Logo — centered in upper half
-                    Image("sus-meter-2")
+                    Image("sus-meter-new")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 300)
 
-                    // JOIN button
+                    // JOIN button (asset art — text is baked in)
                     Button {
                         vm.startBrowsing()
                         showBrowser = true
                     } label: {
-                        Text("JOIN")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(.white)
+                        Image("join-button-new")
+                            .resizable()
+                            .scaledToFit()
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
                     }
-                    .buttonStyle(.glass)
-                    .tint(.pink)
+                    .buttonStyle(.plain)
                     .padding(.horizontal, 32)
 
-                    // CREATE button
+                    // CREATE button (asset art — text is baked in)
                     Button {
                         vm.createRoom()
                     } label: {
-                        Text("CREATE")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(.white)
+                        Image("create-button-new")
+                            .resizable()
+                            .scaledToFit()
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
                     }
-                    .buttonStyle(.glass)
-                    .tint(.pink)
+                    .buttonStyle(.plain)
                     .padding(.horizontal, 32)
 
                     Spacer()

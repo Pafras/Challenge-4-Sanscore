@@ -63,11 +63,16 @@ struct SuspectHoldToAnswerView: View {
                 .scaledToFill()
                 .ignoresSafeArea()
 
-            // Full-width ECG line, pinned near the bottom behind the BPM readout.
-            ECGLine(bpm: bpm)
-                .frame(height: 150)
+            // Full-width ECG line, positioned so it runs THROUGH the BPM readout
+            // (drawn before the VStack -> it sits underneath the number). Dimmed
+            // so it reads as a faint backdrop, not a bright competing line.
+            // The line is drawn at the vertical middle of this frame, so
+            // padding.bottom + height/2 = distance of the line from the bottom.
+            // ~74pt matches where the "69 / BPM" block sits.
+            ECGLine(bpm: bpm, color: .white.opacity(0.22))
+                .frame(height: 120)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 66)              // lift so the number sits on it
+                .padding(.bottom, 44)              // line ~74pt up = over the number
                 .ignoresSafeArea(edges: .horizontal)
                 .allowsHitTesting(false)
 
@@ -111,7 +116,7 @@ struct SuspectHoldToAnswerView: View {
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                 }
                 .foregroundStyle(.white)
-                .padding(.bottom, 40)
+                .padding(.bottom, 70)
             }
         }
         .animation(.easeInOut, value: isEnabled)

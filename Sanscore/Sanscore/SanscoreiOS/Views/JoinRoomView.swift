@@ -43,15 +43,10 @@ struct JoinRoomView: View {
                                     showCodeEntry = true
                                 }
                             } label: {
-                                Text(vm.room.roomNames[host] ?? host.displayName)
-                                    .font(.system(size: 22, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 6)
+                                RoomRowLabel(text: vm.room.roomNames[host] ?? host.displayName)
                             }
-                            .buttonStyle(.glass)
-                            .tint(.pink)
-                            .padding(.horizontal, 32)
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 24)
                         }
                     }
                     .padding(.top, 8)
@@ -79,19 +74,23 @@ struct JoinRoomView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    vm.room.stopBrowsing()
-                    dismissAll()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.white)
-                }
+        // Close button — SAME construction as IdentityCameraView's corner button
+        // (.glassButton + frame 44 + padding 16/8) so every screen's corner
+        // button is identical. Overlay (not toolbar) keeps it inside the safe area.
+        .overlay(alignment: .topLeading) {
+            Button {
+                vm.room.stopBrowsing()
+                dismissAll()
+            } label: {
+                StrokedIcon(systemName: "xmark", assetName: "icon-close",
+                            size: 16, fill: Color(hex: "E40063"), stroke: .white)
+                    .frame(width: 44, height: 44)   // matches identity screen
             }
+            .glassButton()
+            .padding(.leading, 16)
+            .padding(.top, 8)
         }
+        .navigationBarBackButtonHidden(true)
     }
 
     // MARK: - Code Entry Card
@@ -239,9 +238,78 @@ struct JoinRoomView: View {
     }
 }
 
-#Preview {
+// MARK: - Room list row (Figma style)
+
+/// One room button: the room-name-placeholder art as the pill, with the room
+/// name (pink, white outline) overlaid. Fully dynamic — every discovered room
+/// renders its own placeholder with its name on top.
+private struct RoomRowLabel: View {
+    let text: String
+
+    // ─── TUNABLES ─────────────────────────────────────────────────────────
+    var fontSize: CGFloat = 22
+    // ──────────────────────────────────────────────────────────────────────
+
+    var body: some View {
+        Image("room-name-placeholder")
+            .resizable()
+            .scaledToFit()
+            .frame(maxWidth: .infinity)          // pill spans the row width
+            .overlay(
+                OutlinedText(text: text, size: fontSize)
+            )
+    }
+}
+
+/// Text drawn with a coloured fill and a solid outline (SwiftUI can't stroke a
+/// Text directly, so we stack offset copies of the outline colour behind it).
+private struct OutlinedText: View {
+    let text: String
+    var size: CGFloat
+    var fill: Color = Color(red: 0.86, green: 0.14, blue: 0.44)   // pink
+    var outline: Color = .white
+    var outlineWidth: CGFloat = 2
+
+    var body: some View {
+        let font = Font.system(size: size, weight: .heavy, design: .rounded)
+        ZStack {
+            ForEach(Array(offsets.enumerated()), id: \.offset) { _, o in
+                Text(text).font(font).foregroundStyle(outline)
+                    .offset(x: o.width, y: o.height)
+            }
+            Text(text).font(font).foregroundStyle(fill)
+        }
+    }
+
+    private var offsets: [CGSize] {
+        let w = outlineWidth
+        return [CGSize(width: -w, height: 0), CGSize(width: w, height: 0),
+                CGSize(width: 0, height: -w), CGSize(width: 0, height: w),
+                CGSize(width: -w, height: -w), CGSize(width: w, height: -w),
+                CGSize(width: -w, height: w), CGSize(width: w, height: w)]
+    }
+}
+
+#Preview("Empty (no rooms found)") {
     NavigationStack {
         JoinRoomView(vm: GameViewModel(), dismissAll: {})
+    }
+}
+
+// Rooms-available preview: inject a few fake nearby rooms so the list renders
+// with no real peers around. foundRooms/roomNames are plain vars on RoomService,
+// so we can seed them here. Tweak RoomRowLabel and see it live on these.
+#Preview("Rooms available") {
+    let vm = GameViewModel()
+    let hosts = [
+        (MCPeerID(displayName: "host-alpha"),   "Room Alpha"),
+        (MCPeerID(displayName: "host-beta"),    "Room Beta"),
+        (MCPeerID(displayName: "host-charlie"), "Room Charlie")
+    ]
+    vm.room.foundRooms = hosts.map(\.0)
+    vm.room.roomNames = Dictionary(uniqueKeysWithValues: hosts.map { ($0.0, $0.1) })
+    return NavigationStack {
+        JoinRoomView(vm: vm, dismissAll: {})
     }
 }
 #endif
