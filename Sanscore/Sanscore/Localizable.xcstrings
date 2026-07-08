@@ -1,0 +1,111 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Calculating..." : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Menghitung..." } }
+      }
+    },
+    "Cover the rear camera + flash — that's how we read your heartbeat." : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Tutup kamera belakang + lampu kilat — begitulah kami membaca detak jantungmu." } }
+      }
+    },
+    "ENTER CODE" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "MASUKKAN KODE" } }
+      }
+    },
+    "Hmm" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Hmm" } }
+      }
+    },
+    "Keep your finger on the back camera" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Tetap tempelkan jarimu di kamera belakang" } }
+      }
+    },
+    "Liar" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Pembohong" } }
+      }
+    },
+    "MEASURING\nHEART RATE" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "MENGUKUR\nDETAK JANTUNG" } }
+      }
+    },
+    "peak BPM" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "BPM puncak" } }
+      }
+    },
+    "Put your pointy finger on the camera" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Letakkan jari telunjukmu di kamera" } }
+      }
+    },
+    "Take a photo as your\ndisplay picture for identity" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Ambil foto untuk\nfoto profil identitasmu" } }
+      }
+    },
+    "Tap anywhere to continue" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Ketuk di mana saja untuk melanjutkan" } }
+      }
+    },
+    "The button will be active after\ninvestigator done asking." : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Tombol akan aktif setelah\ninterogator selesai bertanya." } }
+      }
+    },
+    "Truth" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Jujur" } }
+      }
+    },
+    "Verdict" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Vonis" } }
+      }
+    },
+    "Waiting for Answer" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Menunggu Jawaban" } }
+      }
+    },
+    "Waiting for host to start the game" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Menunggu host memulai permainan" } }
+      }
+    },
+    "Waiting for others..." : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Menunggu yang lain..." } }
+      }
+    },
+    "Waiting for the answer…" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Menunggu jawaban…" } }
+      }
+    },
+    "Waiting for the host to start the next round…" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Menunggu host memulai ronde berikutnya…" } }
+      }
+    },
+    "Watching this round…" : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Menonton ronde ini…" } }
+      }
+    },
+    "You'll go first to ask by\nspeaking to the mic." : {
+      "localizations" : {
+        "id" : { "stringUnit" : { "state" : "translated", "value" : "Kamu bertanya lebih dulu dengan\nberbicara ke mikrofon." } }
+      }
+    }
+  },
+  "version" : "1.0"
+}
