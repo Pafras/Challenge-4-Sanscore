@@ -134,6 +134,7 @@ struct IdentityCameraView: View {
                     if isTake {
                         Text("Take a photo as your\ndisplay picture for identity")
                             .font(.system(size: 17, weight: .semibold))   // SF Pro
+                            .fontWidth(.expanded)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.white)
                             .transition(.opacity)

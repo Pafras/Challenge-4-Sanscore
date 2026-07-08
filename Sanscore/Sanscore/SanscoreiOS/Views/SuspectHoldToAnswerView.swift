@@ -87,7 +87,7 @@ struct SuspectHoldToAnswerView: View {
                 // Only shown while disabled — explains why the button is inert.
                 if !isEnabled {
                     Text("The button will be active after\ninvestigator done asking.")
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .sussFont(.body2)          // design system: Body 2 (18 semibold)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.white.opacity(0.85))
                         .padding(.top, 80)

@@ -45,8 +45,8 @@ struct SusToastView: View {
                         fill: .white, stroke: .black.opacity(0.3), strokeWidth: 3)
             // title/headline: 14px Expanded Bold, white.
             Text(toast.message)
-                .font(.system(size: 14, weight: .bold))
-                .fontWidth(.expanded)
+                .font(.suss(.headline))   // design-system token: 14 Expanded Bold
+                .sussWidth()
                 .foregroundStyle(.white)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)

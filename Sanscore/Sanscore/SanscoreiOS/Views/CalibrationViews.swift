@@ -23,12 +23,13 @@ struct LetsCalibrateView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 20) {
-                IdentityTitle(text: "LETS\nCALIBRATE", size: 44, strokeWidth: 5,
-                              fill: .white, stroke: Color(hex: "9A9A9A"), tilt: 0)
-                .shadow(color: .black.opacity(0.35), radius: 6, y: 4)
+                SussText(text: "LETS\nCALIBRATE", style: .displayTitle,
+                         fill: .white, stroke: Color(hex: "9A9A9A"))
+                    .shadow(color: .black.opacity(0.35), radius: 6, y: 4)
                 Text("Put your pointy finger on the camera")
-                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .sussFont(.body1)              // design system: Body 1 (20)
                     .foregroundStyle(.white.opacity(0.85))
+                    .multilineTextAlignment(.center)
                 CalibrateHandAnimation()
                     .padding(.top, 48)
             }
@@ -36,8 +37,9 @@ struct LetsCalibrateView: View {
             VStack {
                 Spacer()
                 Text("Tap anywhere to continue")
-                    .font(.system(size: 18, weight: .regular, design: .rounded))
+                    .sussFont(.body2)             // design system: Body 2 (18)
                     .foregroundStyle(.white.opacity(0.70))
+                    .multilineTextAlignment(.center)
             }
             .padding(.bottom, 14)
         }
@@ -122,7 +124,8 @@ struct MeasuringHeartRateView: View {
 
             VStack {
                 Text("MEASURING\nHEART RATE")
-                    .font(.system(size: 36, weight: .heavy, design: .rounded))
+                    .font(.system(size: 36, weight: .heavy))
+                    .fontWidth(.expanded)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white)
                     .padding(.top, 80)
@@ -130,7 +133,8 @@ struct MeasuringHeartRateView: View {
                 Spacer()
 
                 Text("\u{201C} I swear that\nI'm telling the truth \u{201D}")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(.system(size: 22, weight: .bold))
+                    .fontWidth(.expanded)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white)
 
@@ -138,11 +142,13 @@ struct MeasuringHeartRateView: View {
 
                 VStack(spacing: 2) {
                     Text(bpm.map(String.init) ?? "--")
-                        .font(.system(size: 40, weight: .heavy, design: .rounded))
+                        .font(.system(size: 40, weight: .heavy))
+                        .fontWidth(.expanded)
                         .contentTransition(.numericText(value: Double(bpm ?? 0)))
                         .animation(.snappy, value: bpm)
                     Text("BPM")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold))
+                        .fontWidth(.expanded)
                 }
                 .foregroundStyle(.white)
                 .padding(.bottom, 40)
