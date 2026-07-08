@@ -265,11 +265,17 @@ struct IdentityTitle: View {
     var stroke: Color = .white                   // outline colour (drawer title = light blue)
     var tilt: Double                     // degrees; negative = tilt up-right
     var lineHeightMultiple: CGFloat = 0.9        // <1 = tighter lines
+    // Variable font axes (Figma: titles = Width 150 / Weight 1000 -> expanded
+    // black; headline = Expanded Bold; body = Expanded Regular). Defaults keep
+    // every existing call site the title look. See SussTypography.swift.
+    var weight: UIFont.Weight = .black
+    var width: UIFont.Width = .expanded
 
     var body: some View {
         StrokeTextLabel(text: text, fontSize: size, strokeWidth: strokeWidth,
                         fill: UIColor(fill), stroke: UIColor(stroke),
-                        lineHeightMultiple: lineHeightMultiple)
+                        lineHeightMultiple: lineHeightMultiple,
+                        weight: weight, width: width)
             .fixedSize()                          // size to the glyphs
             .rotationEffect(.degrees(tilt))
     }
@@ -283,11 +289,14 @@ private struct StrokeTextLabel: UIViewRepresentable {
     var fill: UIColor
     var stroke: UIColor
     var lineHeightMultiple: CGFloat
+    var weight: UIFont.Weight = .black
+    var width: UIFont.Width = .expanded
 
     func makeUIView(context: Context) -> StrokeTextUIView { StrokeTextUIView() }
     func updateUIView(_ v: StrokeTextUIView, context: Context) {
         v.configure(text: text, fontSize: fontSize, strokeWidth: strokeWidth,
-                    fill: fill, stroke: stroke, lineHeightMultiple: lineHeightMultiple)
+                    fill: fill, stroke: stroke, lineHeightMultiple: lineHeightMultiple,
+                    weight: weight, width: width)
     }
 }
 
@@ -310,10 +319,11 @@ final class StrokeTextUIView: UIView {
     override var intrinsicContentSize: CGSize { contentSize }
 
     func configure(text: String, fontSize: CGFloat, strokeWidth: CGFloat,
-                   fill: UIColor, stroke: UIColor, lineHeightMultiple: CGFloat) {
+                   fill: UIColor, stroke: UIColor, lineHeightMultiple: CGFloat,
+                   weight: UIFont.Weight = .black, width: UIFont.Width = .expanded) {
         fillColor = fill; strokeColor = stroke; strokeW = strokeWidth
 
-        let font = UIFont.systemFont(ofSize: fontSize, weight: .black, width: .expanded)
+        let font = UIFont.systemFont(ofSize: fontSize, weight: weight, width: width)
         let para = NSMutableParagraphStyle()
         para.alignment = .center
         para.lineHeightMultiple = lineHeightMultiple

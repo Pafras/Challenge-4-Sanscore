@@ -80,11 +80,6 @@ struct RoomSetupView: View {
                 }
             }
         }
-        #if os(iOS)
-        .task {
-            _ = await RealSpeechCapture.requestPermission()
-        }
-        #endif
     }
 }
 

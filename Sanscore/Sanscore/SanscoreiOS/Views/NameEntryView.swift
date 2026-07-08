@@ -41,6 +41,7 @@ struct NameEntryView: View {
                     .autocorrectionDisabled()
                     .multilineTextAlignment(.center)
                     .font(.system(size: 56, weight: .bold))   // bigger than the title
+                    .fontWidth(.expanded)
                     .foregroundStyle(.white)
                     .tint(.white)                 // white cursor
                     .submitLabel(.done)

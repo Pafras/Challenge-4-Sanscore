@@ -57,7 +57,7 @@ struct SussConfirmDrawer: View {
                     .padding(.top, 6)
 
                 Text(message)
-                    .font(.system(size: 17, weight: .semibold))
+                    .sussFont(.body2)              // design system: Body 2 (18 semibold)
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)

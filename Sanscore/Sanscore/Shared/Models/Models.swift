@@ -131,4 +131,5 @@ enum RoomMessage: Codable {
     case inLobby(name: String)                   // any -> all: finished profile setup, show my bubble
     case ready(name: String)                     // any -> host: done calibrating, ready to reveal
     case beginReveal                             // host -> all: everyone ready, start the reveal NOW
+    case readyNext(name: String)                 // any -> all: tapped READY on the result screen
 }

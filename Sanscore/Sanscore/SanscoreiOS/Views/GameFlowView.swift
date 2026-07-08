@@ -89,8 +89,10 @@ struct GameFlowView: View {
                 }
             case .asking:
                 // Interrogator's hold-to-question mic (Agung's Figma screen).
+                // Ask for mic/speech HERE (first screen that talks), not at app open.
                 InterrogatorHoldToQuestionView(onPress: { vm.askerPressed() },
                                                onRelease: { vm.askerReleased() })
+                    .task { _ = await RealSpeechCapture.requestPermission() }
             case .fingerCheck:
                 // "PUT FINGER ON CAMERA PLZZZ" — live camera bg (torch on), so
                 // the suspect lines their finger up before the answer starts.
@@ -103,6 +105,9 @@ struct GameFlowView: View {
                 SuspectHoldToAnswerView(bpm: vm.liveBPM,
                                         onPress: { vm.answererPressed() },
                                         onRelease: { vm.answererReleased() })
+                    // Answerer may skip .asking (solo asker is another device),
+                    // so request mic/speech here too — no-op if already granted.
+                    .task { _ = await RealSpeechCapture.requestPermission() }
             case .spectating:
                 // Spectator stays on the "you're the spectator" screen (not the
                 // old "watching this round" waiting view).
@@ -126,10 +131,9 @@ struct GameFlowView: View {
             case .result:
                 if let result = vm.lastResult {
                     // Agung's per-band result screen. Same wire points on all four:
-                    // percent = score, summary = LLM verdict, READY = advance.
-                    // ponytail: READY (x/y) shows the current advance model (host/
-                    // solo advances, others wait) via canAdvance — not yet a real
-                    // per-player result ready-up. Add a .resultReady barrier later.
+                    // percent = score, summary = LLM verdict, READY = ready-up.
+                    // Every player (incl. host) taps READY; the host starts the
+                    // next round once all are in (vm.readyForNextCount == total).
                     // The big % must AGREE with the verdict word: sus screens show
                     // sus%, truth screens show truth% (= 100 - sus%). So a very
                     // truthful answer reads "95% TRUTH", a very sus one "95% SUSS"
@@ -137,25 +141,26 @@ struct GameFlowView: View {
                     let susPercent = Int((result.score * 100).rounded())
                     let truthPercent = 100 - susPercent
                     let summary: String? = result.verdict.isEmpty ? nil : result.verdict
-                    let total = max(1, vm.lobbyPlayers.count)
-                    let ready = vm.canAdvance ? total : 0   // only the advancer's READY is live
+                    let total = vm.totalForNext
+                    let ready = vm.readyForNextCount
+                    let mine = vm.iAmReadyForNext         // I've tapped -> disable my button
                     switch result.band {
                     case .veryTruth:
                         VeryTruthView(percent: truthPercent, summary: summary,
-                                      readyCount: ready, totalPlayers: total,
-                                      onReady: { vm.nextRound() }, onLeave: { showResultLeaveConfirm = true })
+                                      readyCount: ready, totalPlayers: total, iAmReady: mine,
+                                      onReady: { vm.markReadyForNext() }, onLeave: { showResultLeaveConfirm = true })
                     case .kindaTruth:
                         KindaTruthView(percent: truthPercent, summary: summary,
-                                       readyCount: ready, totalPlayers: total,
-                                       onReady: { vm.nextRound() }, onLeave: { showResultLeaveConfirm = true })
+                                       readyCount: ready, totalPlayers: total, iAmReady: mine,
+                                       onReady: { vm.markReadyForNext() }, onLeave: { showResultLeaveConfirm = true })
                     case .kindaSus:
                         KindaSusView(percent: susPercent, summary: summary,
-                                     readyCount: ready, totalPlayers: total,
-                                     onReady: { vm.nextRound() }, onLeave: { showResultLeaveConfirm = true })
+                                     readyCount: ready, totalPlayers: total, iAmReady: mine,
+                                     onReady: { vm.markReadyForNext() }, onLeave: { showResultLeaveConfirm = true })
                     case .verySus:
                         VerySusView(percent: susPercent, summary: summary,
-                                    readyCount: ready, totalPlayers: total,
-                                    onReady: { vm.nextRound() }, onLeave: { showResultLeaveConfirm = true })
+                                    readyCount: ready, totalPlayers: total, iAmReady: mine,
+                                    onReady: { vm.markReadyForNext() }, onLeave: { showResultLeaveConfirm = true })
                     }
                 }
             }

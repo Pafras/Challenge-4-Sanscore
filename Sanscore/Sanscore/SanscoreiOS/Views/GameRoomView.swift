@@ -24,7 +24,7 @@ struct RoomLobbyView: View {
     private var roomPill: some View {
         VStack(spacing: 0) {
             Text("ROOM \(roomTitleText)")
-                .font(.system(size: 13, weight: .bold)).tracking(1.5)
+                .font(.system(size: 13, weight: .bold)).fontWidth(.expanded).tracking(1.5)
                 .foregroundStyle(.white.opacity(0.9))
             Text(vm.room.roomCode).font(.system(size: 40, weight: .black)).fontWidth(.expanded)
                 .foregroundStyle(.white)
@@ -36,7 +36,7 @@ struct RoomLobbyView: View {
             Image(systemName: "person.2.fill")
             Text("\(vm.lobbyPlayers.count)")
         }
-        .font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
+        .font(.system(size: 16, weight: .bold)).fontWidth(.expanded).foregroundStyle(.white)
     }
 
     var body: some View {
@@ -83,6 +83,7 @@ struct RoomLobbyView: View {
                     VStack(spacing: 12) {
                         Text("Waiting for host to start the game")
                             .font(.system(size: 17, weight: .semibold))
+                            .fontWidth(.expanded)
                             .foregroundStyle(.white)
                         LoadingBars()
                     }

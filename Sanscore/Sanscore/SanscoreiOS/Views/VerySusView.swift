@@ -48,6 +48,8 @@ struct VerySusView: View {
     /// "READY (x/y)" counters.
     var readyCount: Int = 3
     var totalPlayers: Int = 4
+    /// True once THIS device tapped ready — locks the button (waiting for others).
+    var iAmReady: Bool = false
     var onReady: () -> Void = {}
     var onLeave: () -> Void = {}
 
@@ -55,8 +57,6 @@ struct VerySusView: View {
     /// to hide the separate digit overlay (avoids a double "100%").
     var showDigitPercent: Bool = true
 
-    /// True once every player has tapped ready — unlocks the READY button.
-    private var allReady: Bool { readyCount >= totalPlayers }
     /// What to show under the stamp: the AI summary, or a placeholder if absent.
     private var summaryText: String { summary ?? "Analyzing your answer…" }
     // ──────────────────────────────────────────────────────────────────────
@@ -150,12 +150,12 @@ struct VerySusView: View {
                     Spacer(minLength: 12)
 
                     // READY — the button art itself conveys enabled/disabled:
-                    // ACTIVE only when everyone is ready, INACTIVE otherwise. Taps
-                    // are blocked until then (.disabled), matching the visual.
+                    // ACTIVE until THIS player taps, then INACTIVE (locked, waiting
+                    // for the others); host starts the next round once everyone's in.
                     Button(action: onReady) {
                         ZStack {
-                            Image(allReady ? "player-placeholder-active"
-                                           : "player-placeholder-inactive")
+                            Image(iAmReady ? "player-placeholder-inactive"
+                                           : "player-placeholder-active")
                                 .resizable()
                                 .scaledToFit()
                                 .frame(height: 76)
@@ -164,7 +164,7 @@ struct VerySusView: View {
                                 .foregroundStyle(.white)
                         }
                     }
-                    .disabled(!allReady)
+                    .disabled(iAmReady)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
