@@ -128,6 +128,7 @@ struct RoomLobbyView: View {
         }
         // Custom pink drawer (Figma "Leave Room") in a system sheet — smooth
         // slide + drag-to-dismiss for free.
+        .sussDrawerDim(showLeaveConfirm)   // design system: drawers dim darker
         .sheet(isPresented: $showLeaveConfirm) {
             SussConfirmDrawer(
                 title: vm.room.isHost ? "CLOSE ROOM?" : "LEAVE ROOM?",

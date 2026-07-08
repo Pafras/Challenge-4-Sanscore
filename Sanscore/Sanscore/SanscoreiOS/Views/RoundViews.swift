@@ -229,7 +229,9 @@ struct CalculatingView: View {
                 Spacer()
                 SusMeter(score: targetScore)
                 Text("Calculating...")
-                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    // SF Pro, wdth 115 (slightly expanded), 40px.
+                    .font(.system(size: 36, weight: .heavy))
+                    .fontWidth(Font.Width(115))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
                 Spacer()
