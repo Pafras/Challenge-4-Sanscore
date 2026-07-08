@@ -63,11 +63,16 @@ struct SuspectHoldToAnswerView: View {
                 .scaledToFill()
                 .ignoresSafeArea()
 
-            // Full-width ECG line, pinned near the bottom behind the BPM readout.
-            ECGLine(bpm: bpm)
-                .frame(height: 150)
+            // Full-width ECG line, positioned so it runs THROUGH the BPM readout
+            // (drawn before the VStack -> it sits underneath the number). Dimmed
+            // so it reads as a faint backdrop, not a bright competing line.
+            // The line is drawn at the vertical middle of this frame, so
+            // padding.bottom + height/2 = distance of the line from the bottom.
+            // ~74pt matches where the "69 / BPM" block sits.
+            ECGLine(bpm: bpm, color: .white.opacity(0.22))
+                .frame(height: 120)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 66)              // lift so the number sits on it
+                .padding(.bottom, 44)              // line ~74pt up = over the number
                 .ignoresSafeArea(edges: .horizontal)
                 .allowsHitTesting(false)
 
@@ -82,7 +87,7 @@ struct SuspectHoldToAnswerView: View {
                 // Only shown while disabled — explains why the button is inert.
                 if !isEnabled {
                     Text("The button will be active after\ninvestigator done asking.")
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .sussFont(.body2)          // design system: Body 2 (18 semibold)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.white.opacity(0.85))
                         .padding(.top, 80)
@@ -111,7 +116,7 @@ struct SuspectHoldToAnswerView: View {
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                 }
                 .foregroundStyle(.white)
-                .padding(.bottom, 40)
+                .padding(.bottom, 70)
             }
         }
         .animation(.easeInOut, value: isEnabled)

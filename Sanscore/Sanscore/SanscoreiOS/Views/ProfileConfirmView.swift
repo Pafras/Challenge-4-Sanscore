@@ -66,6 +66,7 @@ private struct DemoGameRoom: View {
                 Spacer()
                 Text("Waiting for host to start the game")
                     .font(.system(size: 15, weight: .semibold))
+                    .fontWidth(.expanded)
                     .foregroundStyle(.white)
                     .padding(.bottom, 40)
             }

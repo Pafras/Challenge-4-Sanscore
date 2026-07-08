@@ -85,7 +85,7 @@ struct InterrogatorHoldToQuestionView: View {
             // Hint, hidden once you start talking.
             if !isHolding {
                 Text("You'll go first to ask by\nspeaking to the mic.")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .sussFont(.body2)              // design system: Body 2 (18 semibold)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.top, 80)

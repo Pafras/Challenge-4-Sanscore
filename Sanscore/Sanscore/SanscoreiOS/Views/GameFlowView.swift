@@ -184,6 +184,7 @@ struct GameFlowView: View {
         // SussConfirmDrawer). Host ends the game + closes the room; a player
         // just leaves. vm.leaveRoom() already branches on host.
         #if os(iOS)
+        .sussDrawerDim(showResultLeaveConfirm)   // design system: drawers dim darker
         .sheet(isPresented: $showResultLeaveConfirm) {
             SussConfirmDrawer(
                 title: vm.room.isHost ? "END GAME?" : "LEAVE GAME?",

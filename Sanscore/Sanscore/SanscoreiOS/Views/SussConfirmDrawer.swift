@@ -12,6 +12,24 @@
 import SwiftUI
 #if os(iOS)
 
+extension View {
+    /// Extra dim behind a drawer sheet. The system sheet dim is quite light —
+    /// design wants drawers darker. Attach to the PRESENTING view with the
+    /// sheet's isPresented flag; it fades in/out with the sheet and stacks on
+    /// top of the system dim.
+    func sussDrawerDim(_ active: Bool) -> some View {
+        overlay {
+            if active {
+                Color.black.opacity(0.25)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .allowsHitTesting(false)   // taps fall through to the system dim
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: active)
+    }
+}
+
 struct SussConfirmDrawer: View {
     let title: String            // e.g. "CLOSE ROOM?" / "LEAVE ROOM?"
     let message: String
@@ -39,7 +57,7 @@ struct SussConfirmDrawer: View {
                     .padding(.top, 6)
 
                 Text(message)
-                    .font(.system(size: 17, weight: .semibold))
+                    .sussFont(.body2)              // design system: Body 2 (18 semibold)
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)

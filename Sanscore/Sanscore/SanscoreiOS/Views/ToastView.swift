@@ -16,33 +16,37 @@ import SwiftUI
 private extension ToastStyle {
     var top: Color {
         switch self {
-        case .neutral: return Color(red: 0.30, green: 0.30, blue: 0.31)
-        case .warning: return Color(red: 0.80, green: 0.68, blue: 0.34)
-        case .danger:  return Color(red: 0.68, green: 0.35, blue: 0.35)
-        case .success: return Color(red: 0.47, green: 0.69, blue: 0.60)
+        case .neutral: return Color(hex: "3F3F3F")
+        case .warning: return Color(hex: "FFB20B")
+        case .danger:  return Color(hex: "C41D20")
+        case .success: return Color(hex: "4FE7C8")
         }
     }
     var bottom: Color {
         switch self {
-        case .neutral: return Color(red: 0.18, green: 0.18, blue: 0.19)
-        case .warning: return Color(red: 0.71, green: 0.58, blue: 0.25)
-        case .danger:  return Color(red: 0.58, green: 0.27, blue: 0.27)
-        case .success: return Color(red: 0.37, green: 0.60, blue: 0.51)
+        case .neutral: return Color(hex: "000000")
+        case .warning: return Color(hex: "B77D00")
+        case .danger:  return Color(hex: "670002")
+        case .success: return Color(hex: "017451")
         }
     }
 }
 
 struct SusToastView: View {
     let toast: Toast
+    /// Left glyph. Default "info"; pass e.g. "exclamationmark" for errors.
+    var icon: String = "info"
     var onClose: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 10) {
             // 10px white glyph, black 30% stroke 3px (StrokedIcon).
-            StrokedIcon(systemName: "info", size: 10,
+            StrokedIcon(systemName: icon, size: 10,
                         fill: .white, stroke: .black.opacity(0.3), strokeWidth: 3)
+            // title/headline: 14px Expanded Bold, white.
             Text(toast.message)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.suss(.headline))   // design-system token: 14 Expanded Bold
+                .sussWidth()
                 .foregroundStyle(.white)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
@@ -58,14 +62,22 @@ struct SusToastView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .background {
+            // Frosted glass (Figma: background blur 40) UNDER the 50% gradient.
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(RadialGradient(colors: [toast.style.top, toast.style.bottom],
-                                     center: .center, startRadius: 0, endRadius: 160))
-                .opacity(0.5)   // background at 50% opacity
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    // One gradient layer at 60% — vivid hexes carry the colour,
+                    // the material blur stays visible through it.
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(RadialGradient(colors: [toast.style.top, toast.style.bottom],
+                                             center: .center, startRadius: 0, endRadius: 160))
+                        .opacity(0.6)
+                }
         }
         .overlay(
+            // Inside stroke: white 60%, 3px.
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(.white.opacity(0.5), lineWidth: 1.5)
+                .strokeBorder(.white.opacity(0.6), lineWidth: 3)
         )
         .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
     }
