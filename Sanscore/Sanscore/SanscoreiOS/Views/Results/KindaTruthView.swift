@@ -61,7 +61,7 @@ struct KindaTruthView: View {
     var body: some View {
         ZStack {
             // Background
-            Image("result-yellow-bg")
+            Image("result-yellow-bg 1")
                 .resizable()
                 .scaledToFill()
                 .ignoresSafeArea()

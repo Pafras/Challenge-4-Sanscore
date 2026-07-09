@@ -61,7 +61,7 @@ struct VeryTruthView: View {
     var body: some View {
         ZStack {
             // Background
-            Image("result-green-bg")
+            Image("result-green-bg 1")
                 .resizable()
                 .scaledToFill()
                 .ignoresSafeArea()
