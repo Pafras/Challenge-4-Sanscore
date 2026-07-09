@@ -281,6 +281,7 @@ extension IdentityCameraView {
     }
 
     private func capture() {
+        AudioManager.shared.playSFX(.camera)
         // Fall back to a solid-colour photo when there's no camera frame yet
         // (Simulator / #Preview / warming up) so the flow is always testable.
         let shot = camera.latestFrame ?? placeholderImage()
