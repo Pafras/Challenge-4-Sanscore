@@ -284,6 +284,7 @@ struct JoinRoomView: View {
     // MARK: - Input Logic
 
     private func handleKey(_ key: String) {
+        AudioManager.shared.playSFX(.click)
         vm.joinError = nil   // clear any previous warning as they retype
         if key == "⌫" {
             if focusIndex > 0 && digits[focusIndex].isEmpty {

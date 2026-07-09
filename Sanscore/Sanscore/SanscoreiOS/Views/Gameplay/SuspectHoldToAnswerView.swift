@@ -119,6 +119,9 @@ struct SuspectHoldToAnswerView: View {
             }
         }
         .animation(.easeInOut, value: isEnabled)
+        // Heartbeat SFX loops while the live BPM readout is on screen.
+        .onAppear { AudioManager.shared.startHeartbeat() }
+        .onDisappear { AudioManager.shared.stopHeartbeat() }
         // Hold start -> onPress, release -> onRelease. Only when enabled, so a
         // disabled (waiting) button can't fire the round.
         .onChange(of: isHolding) { _, holding in

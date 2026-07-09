@@ -167,6 +167,34 @@ struct GameFlowView: View {
             }
         }
         .animation(.default, value: vm.state)
+        // ── SOUND ─────────────────────────────────────────────────────────
+        // BGM follows the screen GROUP (playBGM no-ops when the track is
+        // unchanged, so Home music runs seamlessly across home -> finding
+        // room -> enter code). Mic screens (ask/answer/calibrate) get silence
+        // so speech capture doesn't record our own music.
+        // START sfx fires on the lobby -> game transition, so every phone
+        // (host AND players) hears it, not just the one that tapped START.
+        .onChange(of: vm.state, initial: true) { old, new in
+            if old == .roomLobby, new != .idle, new != .roomLobby {
+                AudioManager.shared.playSFX(.start)
+            }
+            // Role announce stinger the moment YOUR role is revealed.
+            if new == .roleResult {
+                switch vm.myRole {
+                case .asker:     AudioManager.shared.playSFX(.roleInterrogator)
+                case .answerer:  AudioManager.shared.playSFX(.roleSuspect)
+                case .spectator: AudioManager.shared.playSFX(.roleSpectator)
+                }
+            }
+            switch new {
+            case .idle:                    AudioManager.shared.playBGM(.home)
+            case .nameEntry, .identity:    AudioManager.shared.playBGM(.setupProfile)
+            case .roomLobby:               AudioManager.shared.playBGM(.gameRoom)
+            case .roleReveal, .roleResult: AudioManager.shared.playBGM(.beginNext)
+            case .calculating, .result:    AudioManager.shared.playBGM(.calcResult)
+            default:                       AudioManager.shared.stopBGM()
+            }
+        }
 
         // Toast layer — a sibling in the ZStack (not an overlay on the screen
         // switch) so it always floats ON TOP of every game screen, even the
