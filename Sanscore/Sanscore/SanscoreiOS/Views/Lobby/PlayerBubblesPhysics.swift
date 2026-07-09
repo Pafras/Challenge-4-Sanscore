@@ -207,10 +207,16 @@ final class BubbleEngine {
     private func resolveWalls() {
         for i in balls.indices {
             let r = balls[i].radius
-            if balls[i].pos.x < r { balls[i].pos.x = r; balls[i].vel.dx = abs(balls[i].vel.dx); balls[i].flash = 0.6 }
-            else if balls[i].pos.x > bounds.width - r { balls[i].pos.x = bounds.width - r; balls[i].vel.dx = -abs(balls[i].vel.dx); balls[i].flash = 0.6 }
-            if balls[i].pos.y > bounds.height - r { balls[i].pos.y = bounds.height - r; balls[i].vel.dy = -abs(balls[i].vel.dy); balls[i].flash = 0.6 }
-            else if balls[i].pos.y < r && balls[i].vel.dy < 0 { balls[i].pos.y = r; balls[i].vel.dy = abs(balls[i].vel.dy); balls[i].flash = 0.6 }
+            var hit = false
+            if balls[i].pos.x < r { balls[i].pos.x = r; balls[i].vel.dx = abs(balls[i].vel.dx); balls[i].flash = 0.6; hit = true }
+            else if balls[i].pos.x > bounds.width - r { balls[i].pos.x = bounds.width - r; balls[i].vel.dx = -abs(balls[i].vel.dx); balls[i].flash = 0.6; hit = true }
+            if balls[i].pos.y > bounds.height - r { balls[i].pos.y = bounds.height - r; balls[i].vel.dy = -abs(balls[i].vel.dy); balls[i].flash = 0.6; hit = true }
+            else if balls[i].pos.y < r && balls[i].vel.dy < 0 { balls[i].pos.y = r; balls[i].vel.dy = abs(balls[i].vel.dy); balls[i].flash = 0.6; hit = true }
+            // Wall bump: haptic + click, scaled to how fast the ball hit.
+            if hit {
+                let speed = hypot(balls[i].vel.dx, balls[i].vel.dy)
+                tick(strength: min(1, speed / 800))
+            }
         }
     }
 
@@ -250,10 +256,18 @@ final class BubbleEngine {
     }
     func stopMotion() { motion.stopDeviceMotionUpdates() }
 
+    private var lastSound: Double = 0
+
     private func tick(strength: CGFloat) {
         guard let t = lastT, t - lastHaptic > 0.05 else { return }   // throttle
         lastHaptic = t
         haptic.impactOccurred(intensity: max(0.2, strength))
+        // Click SFX per bump, throttled harder than the haptic so a busy box
+        // of balls doesn't turn into machine-gun clicks.
+        if t - lastSound > 0.15 {
+            lastSound = t
+            AudioManager.shared.playSFX(.click)
+        }
     }
 }
 #endif

@@ -109,6 +109,13 @@ struct MeasuringHeartRateView: View {
     @State private var heartbeat = HeartbeatHaptic()   // phone beats at the live BPM
 
     var body: some View {
+        content
+            // Heartbeat SFX loops while the live BPM is on screen.
+            .onAppear { AudioManager.shared.startHeartbeat() }
+            .onDisappear { AudioManager.shared.stopHeartbeat() }
+    }
+
+    private var content: some View {
         ZStack {
             Image("red-bg")
                 .resizable()

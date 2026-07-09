@@ -23,6 +23,8 @@ struct SettingsView: View {
     @AppStorage("settings.bgmVolume") private var bgmVolume  = 0.6
     @AppStorage("settings.closedCaptions") private var closedCaptions = false
 
+    // Sliders write UserDefaults; poke the live players so it applies instantly.
+
     private let pink = Color(hex: "E40063")
 
     var body: some View {
@@ -59,6 +61,8 @@ struct SettingsView: View {
 
             Spacer()
         }
+        .onChange(of: sfxVolume) { _, _ in AudioManager.shared.refreshVolumes() }
+        .onChange(of: bgmVolume) { _, _ in AudioManager.shared.refreshVolumes() }
         .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, alignment: .leading)
         // Full-height drawer with the same pink-bg + rounded-top styling as the

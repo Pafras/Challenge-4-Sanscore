@@ -114,6 +114,10 @@ struct SussButtonStyle: ButtonStyle {
         .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
         .scaleEffect(configuration.isPressed ? 0.97 : 1)
         .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+        // Click SFX for every design-system button, fired on press-down.
+        .onChange(of: configuration.isPressed) { _, pressed in
+            if pressed { AudioManager.shared.playSFX(.click) }
+        }
     }
 }
 

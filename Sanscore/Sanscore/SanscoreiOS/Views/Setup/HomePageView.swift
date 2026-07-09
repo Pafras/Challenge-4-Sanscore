@@ -33,6 +33,7 @@ struct RoomSetupView: View {
 
                     // JOIN button (asset art — text is baked in)
                     Button {
+                        AudioManager.shared.playSFX(.click)
                         vm.startBrowsing()
                         showBrowser = true
                     } label: {
@@ -46,6 +47,7 @@ struct RoomSetupView: View {
 
                     // CREATE button (asset art — text is baked in)
                     Button {
+                        AudioManager.shared.playSFX(.click)
                         vm.createRoom()
                     } label: {
                         Image("create-button-new")
@@ -63,7 +65,10 @@ struct RoomSetupView: View {
                 VStack {
                     HStack {
                         Spacer()
-                        Button { showSettings = true } label: {
+                        Button {
+                            AudioManager.shared.playSFX(.click)
+                            showSettings = true
+                        } label: {
                             StrokedIcon(systemName: "gearshape.fill", assetName: "icon-settings",
                                         size: 14, fill: .white, stroke: Color(hex: "E40063"))
                                 .frame(width: 44, height: 44)
