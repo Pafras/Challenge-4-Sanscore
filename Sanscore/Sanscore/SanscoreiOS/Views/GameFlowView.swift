@@ -186,6 +186,15 @@ struct GameFlowView: View {
                 case .spectator: AudioManager.shared.playSFX(.roleSpectator)
                 }
             }
+            // Result stinger the moment the verdict shows, per sus band.
+            if new == .result, let band = vm.lastResult?.band {
+                switch band {
+                case .verySus:    AudioManager.shared.playSFX(.resultVerySus)
+                case .kindaSus:   AudioManager.shared.playSFX(.resultKindaSus)
+                case .kindaTruth: AudioManager.shared.playSFX(.resultKindaTruth)
+                case .veryTruth:  AudioManager.shared.playSFX(.resultVeryTruth)
+                }
+            }
             switch new {
             case .idle:                    AudioManager.shared.playBGM(.home)
             case .nameEntry, .identity:    AudioManager.shared.playBGM(.setupProfile)

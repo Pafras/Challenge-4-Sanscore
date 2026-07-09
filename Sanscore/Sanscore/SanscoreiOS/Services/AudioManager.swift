@@ -32,6 +32,11 @@ enum SFX: String {
     case roleInterrogator = "INTERROGATOR"
     case roleSuspect      = "SUSSPECT"
     case roleSpectator    = "SPECTATOR"
+    // Result stingers — one per sus band (played when the result screen shows).
+    case resultVerySus   = "SUSS1"
+    case resultKindaSus  = "SUSS2"
+    case resultKindaTruth = "TRUTH2"
+    case resultVeryTruth = "TRUTH1"
 }
 
 final class AudioManager {
