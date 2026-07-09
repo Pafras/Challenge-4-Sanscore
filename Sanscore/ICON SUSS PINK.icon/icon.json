@@ -1,0 +1,132 @@
+{
+  "fill" : {
+    "solid" : "display-p3:0.96078,0.38039,0.66275,1.00000"
+  },
+  "groups" : [
+    {
+      "blur-material" : 0.5,
+      "hidden" : false,
+      "layers" : [
+
+      ],
+      "lighting" : "combined",
+      "position" : {
+        "scale" : 1.1,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "blur-material" : 0.5,
+      "layers" : [
+        {
+          "glass" : true,
+          "image-name" : "Union-1.png",
+          "name" : "Union-1",
+          "position" : {
+            "scale" : 1.7,
+            "translation-in-points" : [
+              7.450826039514595,
+              -136.90239364960615
+            ]
+          }
+        },
+        {
+          "glass" : true,
+          "image-name" : "Mask group-1.png",
+          "name" : "Mask group-1",
+          "position" : {
+            "scale" : 1.7,
+            "translation-in-points" : [
+              -209.95512138631017,
+              65.84666431355583
+            ]
+          }
+        },
+        {
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Mask group.png",
+          "name" : "Mask group",
+          "position" : {
+            "scale" : 1.7,
+            "translation-in-points" : [
+              149.4122621121851,
+              134.62134545634171
+            ]
+          }
+        },
+        {
+          "glass" : true,
+          "image-name" : "Union.png",
+          "name" : "Union",
+          "position" : {
+            "scale" : 1.7,
+            "translation-in-points" : [
+              7.450826039514595,
+              39.49528360107183
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "position" : {
+        "scale" : 1,
+        "translation-in-points" : [
+          11.07272792497497,
+          -23.495283601071833
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    },
+    {
+      "hidden" : true,
+      "layers" : [
+        {
+          "image-name" : "Group 6.png",
+          "name" : "Group 6",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
