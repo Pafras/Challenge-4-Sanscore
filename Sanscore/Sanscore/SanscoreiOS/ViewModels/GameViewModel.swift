@@ -20,6 +20,7 @@ final class GameViewModel {
     var myRole: PlayerRole = .spectator
     var lastResult: SusResult?
     private(set) var resultBPM: Int?   // answerer's recorded BPM for the shown result
+    private(set) var resultTranscript: String?   // what the answerer said (closed captions)
     // Shown on the start screen when a room ends unexpectedly (host left, etc.).
     var roomAlert: String?
     // Transient toast over gameplay, e.g. "Budi left". Auto-clears.
@@ -299,6 +300,7 @@ final class GameViewModel {
             guard state == .waitingForResult || state == .spectating else { return }
             lastResult = SusResult(score: result.score, band: SusBand(score: result.score), verdict: result.verdict)
             resultBPM = result.bpm
+            resultTranscript = result.transcript
             hasPlayedARound = true
             state = .result
         case let .profile(name, image, colorIndex):
@@ -352,6 +354,7 @@ final class GameViewModel {
     private func applyTurn(asker: String, answerer: String) {
         lastResult = nil
         resultBPM = nil
+        resultTranscript = nil
         nextReady.removeAll()          // fresh ready-up for the new round
         currentQuestion = ""
         currentAsker = asker
@@ -738,6 +741,8 @@ final class GameViewModel {
         liveBPM = nil
         let recordedBPM = Int(bpm.rounded())   // shown on the result screen + broadcast
         resultBPM = recordedBPM
+        let transcript = speechResult.text.isEmpty ? nil : speechResult.text   // closed captions
+        resultTranscript = transcript
 
         // The LLM is the only step that can fail; fall back to neutral 0.5.
         let structureResult: StructureResult
@@ -765,7 +770,7 @@ final class GameViewModel {
 
         state = .result
 
-        room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict, bpm: recordedBPM)))
+        room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict, bpm: recordedBPM, transcript: transcript)))
     }
 
     // Only the host (or a solo device) drives the pace. Non-host clients wait

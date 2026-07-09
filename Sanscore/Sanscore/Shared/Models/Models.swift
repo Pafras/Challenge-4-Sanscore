@@ -114,6 +114,7 @@ struct RoundResult: Codable {
     var score: Double
     var verdict: String
     var bpm: Int?          // answerer's recorded heart rate this round (nil = unknown)
+    var transcript: String?   // what the answerer said (for closed captions)
 }
 
 // Everything that travels between phones in a room. One envelope type so
