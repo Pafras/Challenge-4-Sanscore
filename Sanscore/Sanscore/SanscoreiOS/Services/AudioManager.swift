@@ -49,7 +49,13 @@ final class AudioManager {
     // deallocated); cleaned up lazily on the next play.
     private var oneShots: [AVAudioPlayer] = []
 
+    // Xcode SwiftUI previews run in a sandbox where AVAudioSession + a repeating
+    // Timer misbehave and can stall interaction (e.g. numpad taps). Skip all
+    // audio there — playback is meaningless in a preview anyway.
+    private let isPreview = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+
     private init() {
+        if isPreview { return }
         // .ambient + mixWithOthers: politest category — never fights the mic
         // session the speech capture sets up. (This exact setup is the one that
         // played reliably; do NOT force .playback / setActive here, it broke
@@ -98,6 +104,7 @@ final class AudioManager {
 
     /// Loop a track. No-op if it's ALREADY the current one AND audible.
     func playBGM(_ track: BGMTrack) {
+        if isPreview { return }
         if currentTrack == track {
             // Same track but the mic session may have killed it — revive.
             if bgm?.isPlaying != true { reassertAmbient(); bgm?.play() }
@@ -123,6 +130,7 @@ final class AudioManager {
     // MARK: SFX
 
     func playSFX(_ sfx: SFX) {
+        if isPreview { return }
         guard let url = Bundle.main.url(forResource: sfx.rawValue, withExtension: "mp3") else { return }
         oneShots.removeAll { !$0.isPlaying }          // drop finished players
         guard let player = try? AVAudioPlayer(contentsOf: url) else { return }
@@ -133,6 +141,7 @@ final class AudioManager {
 
     /// Looping heartbeat while a live BPM readout is on screen.
     func startHeartbeat() {
+        if isPreview { return }
         guard heartbeat?.isPlaying != true else { return }
         guard let url = Bundle.main.url(forResource: SFX.heartbeat.rawValue, withExtension: "mp3") else { return }
         heartbeat = try? AVAudioPlayer(contentsOf: url)

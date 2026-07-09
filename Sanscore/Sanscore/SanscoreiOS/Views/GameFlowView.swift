@@ -28,6 +28,9 @@ struct GameFlowView: View {
     // Confirmation before leaving from the RESULT screen (Figma "ENDING GAME
     // OPTION"): host = END GAME? (closes room), player = LEAVE GAME?.
     @State private var showResultLeaveConfirm = false
+    // Settings language (EN/ID) — applied as the locale for the WHOLE app so
+    // every Text picks the right Localizable.xcstrings translation live.
+    @AppStorage("settings.language") private var language = "EN"
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -56,7 +59,7 @@ struct GameFlowView: View {
                 // Figma sequence: LETS CALIBRATE -> put-finger warning ->
                 // MEASURING HEART RATE (live BPM). Auto-advances in the vm.
                 switch vm.calibrationPhase {
-                case .instruction: LetsCalibrateView()
+                case .instruction: LetsCalibrateView(onContinue: { vm.advanceFromInstruction() })
                 case .warning:     WarningView()
                 case .measuring:   MeasuringHeartRateView(bpm: vm.liveBPM)
                 }
@@ -249,6 +252,9 @@ struct GameFlowView: View {
             )
         }
         #endif
+        // Settings language toggle -> live app-wide locale. Every SwiftUI Text
+        // re-resolves its Localizable.xcstrings entry when this flips.
+        .environment(\.locale, Locale(identifier: language == "ID" ? "id" : "en"))
     }
 }
 
