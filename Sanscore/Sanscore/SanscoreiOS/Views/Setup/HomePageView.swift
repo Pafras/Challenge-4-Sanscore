@@ -13,6 +13,7 @@ import SwiftUI
 struct RoomSetupView: View {
     @Bindable var vm: GameViewModel
     @State private var showBrowser = false
+    @State private var showSettings = false
 
     var body: some View {   
         NavigationStack {
@@ -57,6 +58,22 @@ struct RoomSetupView: View {
 
                     Spacer()
                 }
+
+                // Settings gear — design-system action button, top-right.
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button { showSettings = true } label: {
+                            StrokedIcon(systemName: "gearshape.fill", assetName: "icon-settings",
+                                        size: 14, fill: .white, stroke: Color(hex: "E40063"))
+                                .frame(width: 44, height: 44)
+                        }
+                        .glassButton()
+                    }
+                    Spacer()
+                }
+                .padding(.trailing, 16)
+                .padding(.top, 8)
             }
             // Room alert (you left / host closed) as the design-system toast,
             // pinned to the top — not floating mid-screen under the logo.
@@ -78,6 +95,10 @@ struct RoomSetupView: View {
                     // Agung's rename). It navigates on to JoinRoomView (the numpad).
                     FindingRoomView(vm: vm, dismissAll: { showBrowser = false })
                 }
+            }
+            .sussDrawerDim(showSettings)
+            .sheet(isPresented: $showSettings) {
+                SettingsView(onClose: { showSettings = false })
             }
         }
     }
