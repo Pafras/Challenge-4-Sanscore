@@ -106,6 +106,8 @@ struct MeasuringHeartRateView: View {
     /// Live rolling BPM readout; nil -> "--" until there's enough signal.
     var bpm: Int?
 
+    @State private var heartbeat = HeartbeatHaptic()   // phone beats at the live BPM
+
     var body: some View {
         ZStack {
             Image("red-bg")
@@ -150,6 +152,9 @@ struct MeasuringHeartRateView: View {
                 .padding(.bottom, 40)
             }
         }
+        .task { heartbeat.start(bpm: bpm) }
+        .onChange(of: bpm) { _, new in heartbeat.setBPM(new) }
+        .onDisappear { heartbeat.stop() }
     }
 }
 
@@ -163,7 +168,7 @@ private struct KaraokeOath: View {
     private let lines = ["\u{201C} I swear that", "I'm telling the truth \u{201D}"]
     private let duration = 8.0
     @State private var start = Date()
-
+    
     var body: some View {
         TimelineView(.animation) { ctx in
             let elapsed = ctx.date.timeIntervalSince(start)
@@ -175,12 +180,12 @@ private struct KaraokeOath: View {
                 }
             }
         }
-        .font(.system(size: 22, weight: .bold))
+        .font(.system(size: 30, weight: .bold))
         .fontWidth(.expanded)                 // Marleen's typography system
         .foregroundStyle(.white)
         .onAppear { start = Date() }
     }
-
+    
     // Split the 0..1 timeline across lines, weighted by character count, so the
     // wipe spends longer on longer lines and reads left->right, top->bottom.
     private func lineProgress(_ p: Double) -> [Double] {

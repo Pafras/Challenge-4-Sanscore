@@ -55,6 +55,7 @@ struct SuspectHoldToAnswerView: View {
     // ──────────────────────────────────────────────────────────────────────
 
     @State private var isHolding = false
+    @State private var heartbeat = HeartbeatHaptic()   // phone beats at the live BPM
 
     var body: some View {
         ZStack {
@@ -125,6 +126,9 @@ struct SuspectHoldToAnswerView: View {
             Haptics.impact(holding ? .medium : .soft)   // mic opens / closes
             if holding { onPress?() } else { onRelease?() }
         }
+        .task { heartbeat.start(bpm: bpm) }
+        .onChange(of: bpm) { _, new in heartbeat.setBPM(new) }
+        .onDisappear { heartbeat.stop() }
     }
 }
 

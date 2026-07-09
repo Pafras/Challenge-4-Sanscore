@@ -8,6 +8,7 @@
 // screens on a device.
 
 import UIKit
+import CoreHaptics
 
 enum Haptics {
     static func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
@@ -50,5 +51,63 @@ final class TensionHaptic {
     func stop() {
         task?.cancel()
         task = nil
+    }
+}
+
+// The signature feel: the phone beats in your hand — a "lub-dub" pulse repeating
+// at the player's live BPM while HR is being read (calibration + during the
+// answer). Uses Core Haptics for the two-tap beat; falls back to a plain impact
+// on devices without it. Simulator = no-op.
+@MainActor
+final class HeartbeatHaptic {
+    private var engine: CHHapticEngine?
+    private var task: Task<Void, Never>?
+    private var bpm = 75            // updated live via setBPM
+
+    func setBPM(_ value: Int?) {
+        if let value { bpm = min(200, max(40, value)) }
+    }
+
+    func start(bpm initial: Int?) {
+        setBPM(initial)
+        prepareEngine()
+        task?.cancel()
+        task = Task { @MainActor in
+            while !Task.isCancelled {
+                beat()
+                try? await Task.sleep(for: .seconds(60.0 / Double(bpm)))   // reads latest bpm each beat
+            }
+        }
+    }
+
+    func stop() {
+        task?.cancel()
+        task = nil
+        engine?.stop(completionHandler: nil)
+        engine = nil
+    }
+
+    private func prepareEngine() {
+        guard engine == nil,
+              CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return }
+        engine = try? CHHapticEngine()
+        engine?.resetHandler = { [weak self] in try? self?.engine?.start() }
+        try? engine?.start()
+    }
+
+    // "lub" (strong) then a softer "dub" ~0.12s later — one heartbeat.
+    private func beat() {
+        guard let engine else { Haptics.impact(.heavy); return }   // no Core Haptics: single thump
+        let lub = CHHapticEvent(eventType: .hapticTransient, parameters: [
+            CHHapticEventParameter(parameterID: .hapticIntensity, value: 1.0),
+            CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.5),
+        ], relativeTime: 0)
+        let dub = CHHapticEvent(eventType: .hapticTransient, parameters: [
+            CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.6),
+            CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.4),
+        ], relativeTime: 0.12)
+        guard let pattern = try? CHHapticPattern(events: [lub, dub], parameters: []),
+              let player = try? engine.makePlayer(with: pattern) else { return }
+        try? player.start(atTime: 0)
     }
 }
