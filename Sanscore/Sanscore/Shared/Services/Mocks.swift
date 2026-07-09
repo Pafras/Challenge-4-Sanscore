@@ -24,6 +24,7 @@ struct MockHeartRate: HeartRateSource {
 
 struct MockSpeech: SpeechCapturing {
     var result = SpeechResult(wordCount: 7, duration: 4.4, text: "i was at home the whole night", responseTime: 4.1)
+    var liveTranscript: String? { result.text }   // so captions show while answering in the Simulator
     func startListening() throws {}
     // ponytail: real SFSpeechRecognizer takes a beat to finalize too; see note above.
     func stopAndTranscribe() async -> SpeechResult {

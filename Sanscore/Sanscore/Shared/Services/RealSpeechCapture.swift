@@ -38,6 +38,9 @@ final class RealSpeechCapture: SpeechCapturing {
     // The best transcription we have seen so far.
     private var latest: SFTranscription?
 
+    // Live partial transcript for closed captions (updated on every partial result).
+    var liveTranscript: String? { latest?.formattedString }
+
     // Ask permission once, up front. Call this before the first round (e.g. on
     // the calibration screen). Returns true if both mic + speech are granted.
     static func requestPermission() async -> Bool {

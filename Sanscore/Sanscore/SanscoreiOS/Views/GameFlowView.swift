@@ -180,16 +180,16 @@ struct GameFlowView: View {
                 .zIndex(100)
         }
 
-        // Closed captions of the spoken answer on the result screen (a11y — only
-        // visible when the user has iOS Closed Captions on). Sits above the
-        // leave / READY row.
-        if vm.state == .result {
-            ClosedCaptionView(text: vm.resultTranscript)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 110)
-                .allowsHitTesting(false)
-                .zIndex(90)
-        }
+        // Closed captions of the spoken answer (a11y — only visible when the user
+        // has iOS Closed Captions on). Live transcript while the suspect answers
+        // (asker + spectators see it too), then the final answer on the result
+        // screen. vm.captionText picks the right one per screen; the view hides
+        // itself when captions are off or there's no text.
+        ClosedCaptionView(text: vm.captionText)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, 110)
+            .allowsHitTesting(false)
+            .zIndex(90)
         }
         .animation(.default, value: vm.toast)
         // Leave/end confirmation drawer for the result screen (Marleen's

@@ -49,6 +49,8 @@ struct SpeechResult {
 protocol SpeechCapturing {
     func startListening() throws
     func stopAndTranscribe() async -> SpeechResult
+    /// Live partial transcript while listening (for closed captions). nil/"" until speech.
+    var liveTranscript: String? { get }
 }
 
 // Judges the MEANING/STRUCTURE of the answer text with the LLM.

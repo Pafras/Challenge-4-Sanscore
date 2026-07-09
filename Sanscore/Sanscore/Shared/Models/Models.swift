@@ -134,4 +134,5 @@ enum RoomMessage: Codable {
     case ready(name: String)                     // any -> host: done calibrating, ready to reveal
     case beginReveal                             // host -> all: everyone ready, start the reveal NOW
     case readyNext(name: String)                 // any -> all: tapped READY on the result screen
+    case caption(String)                         // answerer -> all: live transcript for closed captions
 }

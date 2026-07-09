@@ -20,7 +20,20 @@ final class GameViewModel {
     var myRole: PlayerRole = .spectator
     var lastResult: SusResult?
     private(set) var resultBPM: Int?   // answerer's recorded BPM for the shown result
-    private(set) var resultTranscript: String?   // what the answerer said (closed captions)
+    private(set) var resultTranscript: String?   // what the answerer said (closed captions, final)
+    private(set) var liveCaption: String?        // live transcript during the answer (closed captions)
+
+    // The caption text to show for the current screen (nil = nothing). Live
+    // transcript while the answer is happening (suspect/spectator/asker all see
+    // it), then the final transcript on the result screen. ClosedCaptionView
+    // gates it on the iOS Closed Captions setting.
+    var captionText: String? {
+        switch state {
+        case .answering, .fingerCheck, .spectating, .waitingForResult: return liveCaption
+        case .result: return resultTranscript
+        default: return nil
+        }
+    }
     // Shown on the start screen when a room ends unexpectedly (host left, etc.).
     var roomAlert: String?
     // Transient toast over gameplay, e.g. "Budi left". Auto-clears.
@@ -325,6 +338,10 @@ final class GameViewModel {
             // the host acts on all-ready.
             nextReady.insert(name)
             checkNextBarrier()
+        case let .caption(text):
+            // Live closed captions of the answer, for the asker + spectators.
+            guard state == .waitingForResult || state == .spectating else { return }
+            liveCaption = text
         case .joinAccepted:
             // Host confirmed the code -> we're in. Name screen, then photo.
             if pendingJoin {
@@ -355,6 +372,7 @@ final class GameViewModel {
         lastResult = nil
         resultBPM = nil
         resultTranscript = nil
+        liveCaption = nil
         nextReady.removeAll()          // fresh ready-up for the new round
         currentQuestion = ""
         currentAsker = asker
@@ -466,12 +484,20 @@ final class GameViewModel {
         // if players keep missing the lens.
         state = .answering
         responseClockStart = Date()
+        liveCaption = nil
         try? await Task.sleep(for: .seconds(0.5))
         await heart.startLiveCapture()
-        // Poll the rolling estimate into the UI until the answer is scored.
+        // Poll the rolling BPM + live transcript into the UI until the answer is
+        // scored, and broadcast the transcript so the asker + spectators see the
+        // same live closed captions.
         Task { [weak self] in
             while let self, self.state == .answering || self.state == .fingerCheck {
                 self.liveBPM = self.heart.liveBPM().map { Int($0.rounded()) }
+                let caption = self.speech.liveTranscript
+                if caption != self.liveCaption {
+                    self.liveCaption = caption
+                    if let caption, !caption.isEmpty { self.room.send(.caption(caption)) }
+                }
                 try? await Task.sleep(for: .seconds(1))
             }
         }
