@@ -65,7 +65,7 @@ struct SussConfirmDrawer: View {
                 // Buttons: 72pt tall (40 label + 2×16 style padding).
                 HStack(spacing: 16) {
                     Button(action: onCancel) {
-                        IdentityTitle(text: "CANCEL", size: 18, strokeWidth: 3, tilt: 0)
+                        IdentityTitle(text: String(localized: "CANCEL"), size: 18, strokeWidth: 3, tilt: 0)
                             .frame(maxWidth: .infinity, minHeight: 40)
                     }
                     .buttonStyle(SussButtonStyle(horizontalPadding: 16))

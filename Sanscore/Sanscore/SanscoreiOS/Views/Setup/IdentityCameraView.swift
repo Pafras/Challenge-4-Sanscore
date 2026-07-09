@@ -96,8 +96,8 @@ struct IdentityCameraView: View {
                 // circle pinned to screen center in BOTH states.
                 VStack {
                     Spacer()
-                    IdentityTitle(text: isTake ? "TAKE YOUR\nPICTURE"
-                                        : (name.isEmpty ? "YOU'RE\nALL SET!!" : "\(name.uppercased())\nREADY!!"),
+                    IdentityTitle(text: isTake ? String(localized: "TAKE YOUR\nPICTURE")
+                                        : (name.isEmpty ? String(localized: "YOU'RE\nALL SET!!") : "\(name.uppercased())\nREADY!!"),
                                   tilt: isTake ? 3 : -3)
                 }
                 .frame(maxHeight: .infinity)
@@ -135,7 +135,7 @@ struct IdentityCameraView: View {
                             .frame(height: 64)
                         // Profile confirm CTA: JOIN → enter the lobby.
                         Button(action: onEnter) {
-                            IdentityTitle(text: "JOIN", size: 26, strokeWidth: 4, tilt: 0)
+                            IdentityTitle(text: String(localized: "JOIN"), size: 26, strokeWidth: 4, tilt: 0)
                         }
                         .buttonStyle(.sussGlisten)
                         .padding(.bottom, 56)

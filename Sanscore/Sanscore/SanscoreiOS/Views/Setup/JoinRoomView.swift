@@ -166,7 +166,7 @@ struct JoinRoomView: View {
 
             // Large Title 31, design-system stroked text (same combo as
             // SussConfirmDrawer) instead of the fixed-size image asset.
-            IdentityTitle(text: "ENTER CODE", size: 31, strokeWidth: 5,
+            IdentityTitle(text: String(localized: "ENTER CODE"), size: 31, strokeWidth: 5,
                           fill: Color(hex: "2A1AE8"), stroke: Color(hex: "8FE0FF"),
                           tilt: 0)
                 .padding(.top, 6)

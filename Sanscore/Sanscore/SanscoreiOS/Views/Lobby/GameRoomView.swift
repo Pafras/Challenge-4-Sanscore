@@ -73,7 +73,7 @@ struct RoomLobbyView: View {
                 // Host CTA = START; player CTA = wait + loading bars.
                 if vm.room.isHost {
                     Button { vm.start() } label: {
-                        IdentityTitle(text: "START", size: 26, strokeWidth: 4, tilt: 0)
+                        IdentityTitle(text: String(localized: "START"), size: 26, strokeWidth: 4, tilt: 0)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.sussDark)          // dark radial glass, per Figma
