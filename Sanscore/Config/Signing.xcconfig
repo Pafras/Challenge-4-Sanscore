@@ -1,15 +1,16 @@
 // Shared build config for signing.
 //
-// Personal signing (your Apple team + bundle id) does NOT belong in git — it
-// differs per developer and kept overwriting teammates' builds. Put yours in
-// Local.xcconfig (this folder, git-ignored):
+// These are the RELEASE identity — the team + bundle id registered in App Store
+// Connect, used by Xcode Cloud / TestFlight (which have no Local.xcconfig).
 //
+// For your own LOCAL device builds, override them in Local.xcconfig (this
+// folder, git-ignored) so you don't need this team's cert:
 //   1. Copy  Local.example.xcconfig  ->  Local.xcconfig
 //   2. Fill in your DEVELOPMENT_TEAM and PRODUCT_BUNDLE_IDENTIFIER
-//
 // Local.xcconfig is optionally included below and overrides these defaults.
+// Never set signing in Xcode's UI (it writes to project.pbxproj -> churn).
 
-PRODUCT_BUNDLE_IDENTIFIER = com.sanscore.app
-DEVELOPMENT_TEAM =
+PRODUCT_BUNDLE_IDENTIFIER = com.pafrasvio.Sanscore
+DEVELOPMENT_TEAM = GDPL2X32L7
 
 #include? "Local.xcconfig"
