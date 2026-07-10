@@ -21,6 +21,7 @@
 
 import SwiftUI
 #if os(iOS)
+import UIKit
 
 enum SussTextStyle {
     case displayTitle                       // jumbo screen title (LETS CALIBRATE)
@@ -93,6 +94,8 @@ struct SussText: View {
     var tilt: Double = 0
     /// Override the token's outline thickness when a screen needs to.
     var strokeWidth: CGFloat? = nil
+    /// Multiline alignment (default centered, like titles).
+    var textAlignment: NSTextAlignment = .center
 
     var body: some View {
         IdentityTitle(text: text,
@@ -102,7 +105,8 @@ struct SussText: View {
                       stroke: stroke,
                       tilt: tilt,
                       weight: style.weight,
-                      width: style.width)
+                      width: style.width,
+                      textAlignment: textAlignment)
     }
 }
 

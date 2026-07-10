@@ -21,7 +21,7 @@ struct SyncingView: View {
                 // Marleen's SussText component with a white stroke + the same hard
                 // black drop shadow PickingRolesView uses on its title.
                 SussText(text: "DONE\nCALIBRATING", style: .displayTitle,
-                         fill: .white, stroke: .white, strokeWidth: 0.8)
+                         fill: .white, stroke: .white.opacity(0.5), strokeWidth: 4)
                     .shadow(color: .black.opacity(0.55), radius: 0, x: 3, y: 4)
                     .scaleEffect(pulse ? 1.04 : 0.96)
                     .opacity(pulse ? 1 : 0.75)

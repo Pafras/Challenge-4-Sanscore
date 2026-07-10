@@ -15,6 +15,9 @@ import SwiftUI
 // MARK: - "LETS CALIBRATE"
 
 struct LetsCalibrateView: View {
+    /// Tap anywhere → advance to the put-finger / measuring steps.
+    var onContinue: () -> Void = {}
+
     var body: some View {
         ZStack {
             Spacer()
@@ -43,6 +46,9 @@ struct LetsCalibrateView: View {
             }
             .padding(.bottom, 14)
         }
+        // Whole screen is tappable → continue to the next calibration step.
+        .contentShape(Rectangle())
+        .onTapGesture { onContinue() }
     }
 }
 

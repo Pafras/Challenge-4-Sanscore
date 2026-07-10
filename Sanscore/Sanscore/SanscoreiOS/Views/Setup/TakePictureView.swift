@@ -274,12 +274,14 @@ struct IdentityTitle: View {
     // every existing call site the title look. See SussTypography.swift.
     var weight: UIFont.Weight = .black
     var width: UIFont.Width = .expanded
+    var textAlignment: NSTextAlignment = .center   // multiline alignment
 
     var body: some View {
         StrokeTextLabel(text: text, fontSize: size, strokeWidth: strokeWidth,
                         fill: UIColor(fill), stroke: UIColor(stroke),
                         lineHeightMultiple: lineHeightMultiple,
-                        weight: weight, width: width)
+                        weight: weight, width: width,
+                        textAlignment: textAlignment)
             .fixedSize()                          // size to the glyphs
             .rotationEffect(.degrees(tilt))
     }
@@ -295,12 +297,13 @@ private struct StrokeTextLabel: UIViewRepresentable {
     var lineHeightMultiple: CGFloat
     var weight: UIFont.Weight = .black
     var width: UIFont.Width = .expanded
+    var textAlignment: NSTextAlignment = .center
 
     func makeUIView(context: Context) -> StrokeTextUIView { StrokeTextUIView() }
     func updateUIView(_ v: StrokeTextUIView, context: Context) {
         v.configure(text: text, fontSize: fontSize, strokeWidth: strokeWidth,
                     fill: fill, stroke: stroke, lineHeightMultiple: lineHeightMultiple,
-                    weight: weight, width: width)
+                    weight: weight, width: width, textAlignment: textAlignment)
     }
 }
 
@@ -324,12 +327,13 @@ final class StrokeTextUIView: UIView {
 
     func configure(text: String, fontSize: CGFloat, strokeWidth: CGFloat,
                    fill: UIColor, stroke: UIColor, lineHeightMultiple: CGFloat,
-                   weight: UIFont.Weight = .black, width: UIFont.Width = .expanded) {
+                   weight: UIFont.Weight = .black, width: UIFont.Width = .expanded,
+                   textAlignment: NSTextAlignment = .center) {
         fillColor = fill; strokeColor = stroke; strokeW = strokeWidth
 
         let font = UIFont.systemFont(ofSize: fontSize, weight: weight, width: width)
         let para = NSMutableParagraphStyle()
-        para.alignment = .center
+        para.alignment = textAlignment
         para.lineHeightMultiple = lineHeightMultiple
         let attr = NSAttributedString(string: text,
                                       attributes: [.font: font, .paragraphStyle: para])

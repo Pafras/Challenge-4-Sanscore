@@ -14,10 +14,13 @@ import UIKit
 struct ClosedCaptionView: View {
     let text: String?
     @State private var ccEnabled = UIAccessibility.isClosedCaptioningEnabled
+    // In-app Settings toggle — captions show when EITHER the iOS a11y setting
+    // OR the app's own CLOSE CAPTIONS switch is on.
+    @AppStorage("settings.closedCaptions") private var appCC = false
 
     var body: some View {
         Group {
-            if ccEnabled, let text, !text.isEmpty {
+            if ccEnabled || appCC, let text, !text.isEmpty {
                 Text(text)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)

@@ -29,7 +29,7 @@ struct NameEntryView: View {
                 .ignoresSafeArea()
 
             VStack {
-                IdentityTitle(text: "WHAT'S\nYOUR NAME", size: 38, tilt: 0)   // flat, no lean
+                IdentityTitle(text: String(localized: "WHAT'S\nYOUR NAME"), size: 38, tilt: 0)   // flat, no lean
                     .padding(.top, 44)
 
                 Spacer()
@@ -53,7 +53,7 @@ struct NameEntryView: View {
                 HStack {
                     Spacer()
                     Button(action: done) {
-                        IdentityTitle(text: "DONE", size: 15, strokeWidth: 3, tilt: 0)
+                        IdentityTitle(text: String(localized: "DONE"), size: 15, strokeWidth: 3, tilt: 0)
                     }
                     .buttonStyle(SussButtonStyle(horizontalPadding: 16))   // small variant
                     .opacity(trimmed.isEmpty ? 0.5 : 1)

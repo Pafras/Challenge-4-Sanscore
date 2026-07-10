@@ -61,7 +61,7 @@ struct KindaSusView: View {
     var body: some View {
         ZStack {
             // Background
-            Image("result-orange-bg")
+            Image("result-orange-bg 1")
                 .resizable()
                 .scaledToFill()
                 .ignoresSafeArea()
