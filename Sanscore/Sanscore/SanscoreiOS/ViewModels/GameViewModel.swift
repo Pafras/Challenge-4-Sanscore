@@ -652,8 +652,15 @@ final class GameViewModel {
     func startCalibration() {
         calibrationPhase = .instruction
         state = .calibrating
+        // Instruction screen waits for a TAP (advanceFromInstruction) instead
+        // of auto-advancing, so the player reads it at their own pace.
+    }
+
+    // Tapped "tap anywhere to continue" on LETS CALIBRATE → run the rest of the
+    // sequence: put-finger warning -> MEASURING HEART RATE (live BPM) -> baseline.
+    func advanceFromInstruction() {
+        guard state == .calibrating, calibrationPhase == .instruction else { return }
         Task {
-            try? await Task.sleep(for: .seconds(3))     // read "LETS CALIBRATE"
             calibrationPhase = .warning                 // put finger on camera
             try? await Task.sleep(for: .seconds(3.5))
             calibrationPhase = .measuring               // "I swear..." + live BPM

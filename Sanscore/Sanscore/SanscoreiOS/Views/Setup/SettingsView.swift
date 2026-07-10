@@ -49,14 +49,12 @@ struct SettingsView: View {
                     // TODO: route to the BGM audio channel.
             }
 
-            // CLOSE CAPTIONS
+            // CLOSE CAPTIONS — custom pink toggle (Figma). Same key
+            // ClosedCaptionView reads, so flipping it shows/hides captions live.
             HStack {
                 labelRow(icon: "captions.bubble.fill", title: "CLOSE\nCAPTIONS")
                 Spacer()
-                Toggle("", isOn: $closedCaptions)
-                    .labelsHidden()
-                    .tint(pink)
-                    // TODO(pafras): show/hide the live captions when this is on.
+                SussToggle(isOn: $closedCaptions)
             }
 
             Spacer()
@@ -110,7 +108,8 @@ struct SettingsView: View {
     private func labelRow(icon: String, title: String) -> some View {
         HStack(spacing: 10) {
             StrokedIcon(systemName: icon, size: 18, fill: pink, stroke: .white, strokeWidth: 3)
-            SussText(text: title, style: .title3, fill: pink, stroke: .white)
+            SussText(text: title, style: .title3, fill: pink, stroke: .white,
+                     textAlignment: .left)   // 2-line titles (CLOSE\nCAPTIONS) align left
         }
     }
 }
@@ -125,9 +124,9 @@ private struct LanguageToggle: View {
         HStack(spacing: 0) {
             ForEach(options, id: \.self) { opt in
                 let on = selection == opt
-                Text(opt)
-                    .sussFont(.body1Bold)
-                    .foregroundStyle(Color(hex: "E40063"))
+                // Stroked like the row titles (pink fill, white outline).
+                SussText(text: opt, style: .title3,
+                         fill: Color(hex: "E40063"), stroke: .white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background {
@@ -156,14 +155,79 @@ private struct LanguageToggle: View {
     }
 }
 
-// MARK: - Pink slider
+// MARK: - Pink slider (custom, Figma look — stock Slider can't be restyled)
 
 private struct SussSlider: View {
-    @Binding var value: Double
+    @Binding var value: Double   // 0...1
+    private let trackH: CGFloat = 14
+    private let knob: CGFloat = 30
 
     var body: some View {
-        Slider(value: $value)
-            .tint(Color(hex: "E40063"))
+        GeometryReader { geo in
+            let w = geo.size.width
+            let x = CGFloat(value) * (w - knob) + knob / 2   // knob center
+
+            ZStack(alignment: .leading) {
+                // Base track: light pink, white border.
+                Capsule()
+                    .fill(.white.opacity(0.45))
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.9), lineWidth: 2))
+                    .frame(height: trackH)
+                // Filled part: pink gradient up to the knob, white stroke like
+                // the base track.
+                Capsule()
+                    .fill(LinearGradient(colors: [Color(hex: "FF7BC8"), Color(hex: "E40063")],
+                                         startPoint: .leading, endPoint: .trailing))
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.9), lineWidth: 2))
+                    .frame(width: max(trackH, x), height: trackH)
+                // Knob: pink ball, white ring.
+                Circle()
+                    .fill(RadialGradient(colors: [Color(hex: "FF5AA9"), Color(hex: "E40063")],
+                                         center: .center, startRadius: 0, endRadius: knob / 2))
+                    .overlay(Circle().strokeBorder(.white, lineWidth: 3))
+                    .frame(width: knob, height: knob)
+                    .shadow(color: .black.opacity(0.2), radius: 3, y: 2)
+                    .position(x: x, y: geo.size.height / 2)
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { g in
+                        value = min(max(0, Double((g.location.x - knob / 2) / (w - knob))), 1)
+                    }
+            )
+        }
+        .frame(height: 34)
+    }
+}
+
+// MARK: - Pink toggle (custom, Figma look)
+
+private struct SussToggle: View {
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Button {
+            AudioManager.shared.playSFX(.click)
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { isOn.toggle() }
+        } label: {
+            Capsule()
+                .fill(isOn
+                      ? AnyShapeStyle(LinearGradient(colors: [Color(hex: "FF7BC8"), Color(hex: "E40063")],
+                                                     startPoint: .top, endPoint: .bottom))
+                      : AnyShapeStyle(Color.white.opacity(0.35)))
+                .overlay(Capsule().strokeBorder(.white.opacity(0.8), lineWidth: 2))
+                .frame(width: 76, height: 42)
+                .overlay(alignment: isOn ? .trailing : .leading) {
+                    Circle()
+                        .fill(Color(hex: "FFE3F2"))
+                        .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                        .frame(width: 34, height: 34)
+                        .padding(4)
+                        .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+                }
+        }
+        .buttonStyle(.plain)
     }
 }
 

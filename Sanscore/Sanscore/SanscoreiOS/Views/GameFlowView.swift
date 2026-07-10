@@ -28,6 +28,9 @@ struct GameFlowView: View {
     // Confirmation before leaving from the RESULT screen (Figma "ENDING GAME
     // OPTION"): host = END GAME? (closes room), player = LEAVE GAME?.
     @State private var showResultLeaveConfirm = false
+    // Settings language (EN/ID) — applied as the locale for the WHOLE app so
+    // every Text picks the right Localizable.xcstrings translation live.
+    @AppStorage("settings.language") private var language = "EN"
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -56,7 +59,7 @@ struct GameFlowView: View {
                 // Figma sequence: LETS CALIBRATE -> put-finger warning ->
                 // MEASURING HEART RATE (live BPM). Auto-advances in the vm.
                 switch vm.calibrationPhase {
-                case .instruction: LetsCalibrateView()
+                case .instruction: LetsCalibrateView(onContinue: { vm.advanceFromInstruction() })
                 case .warning:     WarningView()
                 case .measuring:   MeasuringHeartRateView(bpm: vm.liveBPM)
                 }
@@ -186,6 +189,15 @@ struct GameFlowView: View {
                 case .spectator: AudioManager.shared.playSFX(.roleSpectator)
                 }
             }
+            // Result stinger the moment the verdict shows, per sus band.
+            if new == .result, let band = vm.lastResult?.band {
+                switch band {
+                case .verySus:    AudioManager.shared.playSFX(.resultVerySus)
+                case .kindaSus:   AudioManager.shared.playSFX(.resultKindaSus)
+                case .kindaTruth: AudioManager.shared.playSFX(.resultKindaTruth)
+                case .veryTruth:  AudioManager.shared.playSFX(.resultVeryTruth)
+                }
+            }
             switch new {
             case .idle:                    AudioManager.shared.playBGM(.home)
             case .nameEntry, .identity:    AudioManager.shared.playBGM(.setupProfile)
@@ -240,6 +252,9 @@ struct GameFlowView: View {
             )
         }
         #endif
+        // Settings language toggle -> live app-wide locale. Every SwiftUI Text
+        // re-resolves its Localizable.xcstrings entry when this flips.
+        .environment(\.locale, Locale(identifier: language == "ID" ? "id" : "en"))
     }
 }
 

@@ -74,16 +74,16 @@ struct JoinRoomView: View {
         .sheet(isPresented: $showCodeEntry, onDismiss: { selected = nil }) {
             codeEntryCard
         }
-        // Close button — SAME construction as IdentityCameraView's corner button
-        // (.glassButton + frame 44 + padding 16/8) so every screen's corner
-        // button is identical. Overlay (not toolbar) keeps it inside the safe area.
+        // Back button — the design-system action button (same construction as
+        // IdentityCameraView's corner button: .glassButton + frame 44 +
+        // padding 16/8). Chevron = "go back", not close.
         .overlay(alignment: .topLeading) {
             Button {
                 vm.room.stopBrowsing()
                 dismissAll()
             } label: {
-                StrokedIcon(systemName: "xmark", assetName: "icon-close",
-                            size: 16, fill: Color(hex: "E40063"), stroke: .white)
+                StrokedIcon(systemName: "chevron.left", assetName: "icon-back",
+                            size: 18, fill: Color(hex: "E40063"), stroke: .white)
                     .frame(width: 44, height: 44)   // matches identity screen
             }
             .glassButton()
@@ -375,6 +375,15 @@ private struct OutlinedText: View {
 #Preview("Empty (no rooms found)") {
     NavigationStack {
         JoinRoomView(vm: GameViewModel(), dismissAll: {})
+    }
+}
+
+// Opens STRAIGHT on the code-entry card (no room to tap in a preview). Type any
+// 4 digits → wrong-code shake + "Wrong Code!" toast fire (handleKey fakes the
+// reject when there's no selected host).
+#Preview("Enter code card") {
+    NavigationStack {
+        JoinRoomView(vm: GameViewModel(), dismissAll: {}, previewShowCode: true)
     }
 }
 

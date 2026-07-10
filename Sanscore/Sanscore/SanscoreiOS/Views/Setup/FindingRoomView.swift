@@ -35,17 +35,19 @@ struct FindingRoomView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    vm.room.stopBrowsing()
-                    dismissAll()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.white)
-                }
+        // Back button — design-system action button, identical to JoinRoomView's.
+        .overlay(alignment: .topLeading) {
+            Button {
+                vm.room.stopBrowsing()
+                dismissAll()
+            } label: {
+                StrokedIcon(systemName: "chevron.left", assetName: "icon-back",
+                            size: 18, fill: Color(hex: "E40063"), stroke: .white)
+                    .frame(width: 44, height: 44)
             }
+            .glassButton()
+            .padding(.leading, 16)
+            .padding(.top, 8)
         }
         .navigationDestination(isPresented: .constant(!vm.room.foundRooms.isEmpty)) {
             JoinRoomView(vm: vm, dismissAll: dismissAll)
