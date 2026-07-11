@@ -213,6 +213,15 @@ extension RoomService: MCSessionDelegate {
     func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
         guard let message = try? JSONDecoder().decode(RoomMessage.self, from: data) else { return }
         DispatchQueue.main.async {
+            // The host is the hub. Joiners only invite the host, so the network is
+            // a STAR, not a mesh — joiner<->joiner links are absent/flaky. So the
+            // host relays every peer message on to its OTHER peers (re-sending the
+            // raw bytes, no re-encode), which is how one joiner's roster/question/
+            // result reaches another joiner. Only the host relays, so no loop.
+            if self.isHost {
+                let others = session.connectedPeers.filter { $0 != peerID }
+                if !others.isEmpty { try? session.send(data, toPeers: others, with: .reliable) }
+            }
             self.onMessage?(message)
         }
     }

@@ -190,7 +190,20 @@ final class GameViewModel {
     // typing their name — so the lobby only shows players in this set, not
     // everyone connected. Announced via .inLobby (see enterLobby).
     var lobbyMembers: Set<String> = []
-    var lobbyPlayers: [String] { room.players.filter { lobbyMembers.contains($0) } }
+    // The lobby roster renders from lobbyMembers, NOT room.players (= self +
+    // MY connectedPeers). In the star topology a joiner isn't directly connected
+    // to other joiners, so room.players would drop them — the "3 in lobby, 2 in
+    // picking-roles" bug. lobbyMembers is authoritative on the host and fed to
+    // joiners via the host's .roster broadcast, so every device agrees.
+    var lobbyPlayers: [String] { lobbyMembers.sorted() }
+
+    // Host is the roster authority (it's connected to everyone). Whenever its
+    // lobby set changes, it broadcasts the full list so joiners — who can't see
+    // each other directly — render the same players.
+    private func broadcastRosterIfHost() {
+        guard room.isHost else { return }
+        room.send(.roster(Array(lobbyMembers)))
+    }
 
     func setMyAvatar(_ image: UIImage, colorIndex: Int = 0) {
         guard let data = image.jpegThumbnail(maxSide: 160, quality: 0.6) else { return }
@@ -204,7 +217,22 @@ final class GameViewModel {
     // - active asker/answerer left -> this round can't finish -> back to lobby.
     // - anyone else (spectator/lobby) -> keep going, just a toast.
     private func peerLeft(_ name: String) {
+        // Star topology: only the HOST is reliably connected to everyone, so only
+        // the host owns the roster + decides round teardown on a leave. A joiner's
+        // link to another joiner is flaky, so a joiner IGNORES peer drops — except
+        // losing the host itself, which really does close the room. This is what
+        // stops a dropped opportunistic link from falsely removing a player who's
+        // still in the room (the "3 -> 2 at picking-roles" bug).
+        if !room.isHost {
+            if state != .idle, everConnected, room.connectedPeers.isEmpty {
+                endRoom("The room closed — the host left.")
+            }
+            return
+        }
+
+        // --- Host path: authoritative. Host sees every real leave. ---
         lobbyMembers.remove(name)
+        broadcastRosterIfHost()   // push the shrunk roster to every joiner
         // If we're waiting at the reveal barrier, stop waiting on the leaver —
         // otherwise the host hangs until the 25s timeout.
         if state == .syncing {
@@ -220,12 +248,11 @@ final class GameViewModel {
         }
         // Ignore drops fired by our own leave — we're already heading to start.
         guard state != .idle else { return }
-        // Host left: as a joiner, we lose all peers.
-        if !room.isHost, everConnected, room.connectedPeers.isEmpty {
-            endRoom("The room closed — the host left.")
-            return
-        }
         let shown = label(for: name)
+        // ponytail: only the host tears the round down on an asker/answerer leave.
+        // A joiner mid-round can't detect another joiner leaving (no direct link),
+        // so it falls back to armResultTimeout(30s). Broadcast a teardown message
+        // if that 30s wait ever feels too long.
         if inRound, name == currentAsker || name == currentAnswerer {
             returnToLobby("\(shown) left — round ended.")
         } else {
@@ -243,6 +270,13 @@ final class GameViewModel {
             try? await Task.sleep(for: .seconds(3))
             if token == noticeToken { toast = nil }
         }
+    }
+
+    // Player tapped the mic instead of holding it — nudge them with the same
+    // toast component the lobby uses (warning style). The button itself does the
+    // buzz. Auto-clears via showLeftNotice.
+    func hintHoldToTalk(_ text: String) {
+        showLeftNotice(text, style: .warning)
     }
 
     // Manual dismiss (tap the X on the toast).
@@ -308,9 +342,15 @@ final class GameViewModel {
         case let .question(text):
             // Only the answerer needs the question (for the LLM).
             if myRole == .answerer { setQuestion(text) }
+        case .calculating:
+            // Answerer finished — swap the asker's/spectators' waiting screen for
+            // the spinning meter. Its needle sweeps (lastResult still nil) until
+            // the .result message lands them on the verdict.
+            guard state == .waitingForResult || state == .spectating else { return }
+            state = .calculating
         case let .result(result):
             // Asker (waiting) + spectators show it; the answerer already has it.
-            guard state == .waitingForResult || state == .spectating else { return }
+            guard state == .waitingForResult || state == .spectating || state == .calculating else { return }
             lastResult = SusResult(score: result.score, band: SusBand(score: result.score), verdict: result.verdict)
             resultBPM = result.bpm
             resultTranscript = result.transcript
@@ -323,6 +363,12 @@ final class GameViewModel {
             displayNames[id] = display
         case let .inLobby(name):
             lobbyMembers.insert(name)
+            broadcastRosterIfHost()   // host: tell everyone the new full roster
+        case let .roster(names):
+            // Joiners adopt the host's authoritative roster wholesale (the host
+            // ignores its own echo — it already IS the source of truth).
+            guard !room.isHost else { return }
+            lobbyMembers = Set(names)
         case let .ready(name):
             // Host tallies readiness; fires the reveal once everyone's in.
             guard room.isHost else { return }
@@ -512,7 +558,7 @@ final class GameViewModel {
         let token = waitToken
         Task {
             try? await Task.sleep(for: .seconds(seconds))
-            if token == waitToken, state == .waitingForResult || state == .spectating {
+            if token == waitToken, state == .waitingForResult || state == .spectating || state == .calculating {
                 returnToLobby("No result came back — back to the lobby.")
             }
         }
@@ -594,6 +640,7 @@ final class GameViewModel {
         // Setup done — reveal my bubble on everyone's lobby (see lobbyMembers).
         lobbyMembers.insert(myName)
         room.send(.inLobby(name: myName))
+        broadcastRosterIfHost()   // host seeds the roster with itself
         state = .roomLobby
     }
 
@@ -767,6 +814,10 @@ final class GameViewModel {
         // sweeps (targetScore == nil) while transcribe + LLM run below, then
         // eases to the real score once lastResult is set.
         state = .calculating
+        // Tell the asker + spectators to leave their waiting screens and show
+        // the same spinning meter while we score — the reveal should look the
+        // same on every phone, not just the suspect's.
+        room.send(.calculating)
         let speechResult = await speech.stopAndTranscribe()
         // HR was captured live DURING the answer (started in beginAnswering);
         // this just stops the camera and reads the estimate — near instant.

@@ -141,6 +141,10 @@ struct SpectatingView: View {
     }
 }
 
+// ponytail: DEAD — the asker's `.waitingForResult` now renders Agung's styled
+// `WaitingForAnswerView` (InterrogatorHoldToQuestionView.swift), not this plain
+// spinner. Kept alongside the other flagged orphans (AskingView/AnsweringView/
+// SpectatingView); delete the batch together.
 struct WaitingForResultView: View {
     let onCancel: () -> Void
 

@@ -46,6 +46,9 @@ struct SuspectHoldToAnswerView: View {
     // vm.answererReleased() (score the round). nil in #Preview.
     var onPress: (() -> Void)? = nil
     var onRelease: (() -> Void)? = nil
+    // Tapped instead of held — GameFlowView wires this to a "press and hold"
+    // toast nudge (the button already buzzes).
+    var onTap: (() -> Void)? = nil
     // ──────────────────────────────────────────────────────────────────────
 
     // ─── TUNABLES ─────────────────────────────────────────────────────────
@@ -98,7 +101,8 @@ struct SuspectHoldToAnswerView: View {
                     size: circleSize,
                     barCount: barCount,
                     isEnabled: isEnabled,
-                    isHolding: $isHolding
+                    isHolding: $isHolding,
+                    onTap: onTap
                 )
                 .offset(y: -40)                // sit a little higher
 
@@ -148,9 +152,27 @@ struct MicHoldButton: View {
     /// Pressed-state radial fill (centre -> edge). Default = suspect red;
     /// interrogator passes blue.
     var pressedColors: [Color] = [Color(hex: "BE0003"), .black]
+    /// Fired when the button is TAPPED (released before the hold commits) — the
+    /// screens use it to nudge the player ("press and hold"). onPress/onRelease
+    /// only fire on a real hold.
+    var onTap: (() -> Void)? = nil
 
-    // pressed = held AND enabled (a disabled button can't be pressed).
-    private var pressed: Bool { isHolding && isEnabled }
+    // A quick TAP must not count as an answer — players kept tapping and the
+    // round fired with no speech. So the round only starts once the button has
+    // been held past `minimumHold`. touchDown = finger is on the button right
+    // now (drives the instant press visual); isHolding only flips true once the
+    // hold COMMITS — that's the edge the parent screens watch for onPress /
+    // onRelease. A tap releases before the timer commits, so nothing fires.
+    // ponytail: fixed 0.3s threshold. onPress (mic + response clock) therefore
+    // starts ~0.3s into the hold — fine, players press then speak; tighten if
+    // the first word ever clips.
+    @State private var touchDown = false
+    @State private var committed = false
+    @State private var armTask: Task<Void, Never>?
+    private let minimumHold: Double = 0.3
+
+    // pressed = finger down AND enabled (a disabled button can't be pressed).
+    private var pressed: Bool { touchDown && isEnabled }
 
     var body: some View {
         ZStack {
@@ -169,13 +191,34 @@ struct MicHoldButton: View {
         // Whole button 50% opacity when disabled.
         .opacity(isEnabled ? 1 : 0.5)
         .scaleEffect(pressed ? 0.96 : 1.0)
-        .animation(.easeOut(duration: 0.15), value: isHolding)
+        .animation(.easeOut(duration: 0.15), value: touchDown)
         .contentShape(Circle())
-        // Hold anywhere on the circle: press = start, release = stop.
+        // Hold the circle: finger down arms a timer; only a hold past
+        // `minimumHold` commits (isHolding -> true). Release before then = a tap
+        // -> the timer is cancelled and nothing fires.
         .gesture(
             DragGesture(minimumDistance: 0)
-                .onChanged { _ in if !isHolding { isHolding = true } }
-                .onEnded { _ in isHolding = false }
+                .onChanged { _ in
+                    guard isEnabled, !touchDown else { return }
+                    touchDown = true
+                    armTask = Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(minimumHold))
+                        guard touchDown, isEnabled else { return }   // still held?
+                        committed = true
+                        isHolding = true                             // -> onPress
+                    }
+                }
+                .onEnded { _ in
+                    touchDown = false
+                    armTask?.cancel()
+                    if committed {                                   // real hold
+                        committed = false
+                        isHolding = false                           // -> onRelease
+                    } else {                                        // just a tap
+                        Haptics.notify(.warning)                    // "nope" buzz
+                        onTap?()                                     // nudge to hold
+                    }
+                }
         )
         .disabled(!isEnabled)                          // no touches when disabled
         // Native taptic feedback on start (firm) / release (light).
