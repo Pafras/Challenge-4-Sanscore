@@ -121,12 +121,13 @@ struct KindaTruthView: View {
                 // Bottom row: leave (left edge) + READY (right edge).
                 // A Spacer pushes them to opposite ends, matching the design.
                 HStack(spacing: 0) {
+                    // Leave — design-system circular action button (code, not art).
                     Button(action: onLeave) {
-                        Image("exit-button")
-                            .resizable()
-                            .scaledToFit()
+                        StrokedIcon(systemName: "xmark", assetName: "icon-close",
+                                    size: 22, fill: Color(hex: "E40063"), stroke: .white)
                             .frame(width: 72, height: 72)
                     }
+                    .glassButton()
 
                     Spacer(minLength: 12)
 
@@ -134,18 +135,15 @@ struct KindaTruthView: View {
                     // waiting for the others). The count shows how many have readied;
                     // the host starts the next round once everyone's in.
                     Button(action: onReady) {
-                        ZStack {
-                            Image(iAmReady ? "player-placeholder-inactive"
-                                           : "player-placeholder-active")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 76)
-                            Text("READY (\(readyCount)/\(totalPlayers))")
-                                .font(.system(size: 22, weight: .heavy, design: .rounded))
-                                .foregroundStyle(.white)
-                        }
+                        IdentityTitle(text: "READY (\(readyCount)/\(totalPlayers))",
+                                      size: 20, strokeWidth: 3, tilt: 0)
+                            .frame(minHeight: 40)
                     }
+                    .buttonStyle(SussButtonStyle(
+                        horizontalPadding: 24,
+                        gradientColors: [Color(hex: "FFC1EB"), Color(hex: "EB0067")]))
                     .disabled(iAmReady)
+                    .opacity(iAmReady ? 0.55 : 1)   // locked once I'm ready
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)

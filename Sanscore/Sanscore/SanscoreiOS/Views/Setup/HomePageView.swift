@@ -22,7 +22,7 @@ struct RoomSetupView: View {
                     .resizable()
                     .ignoresSafeArea()
 
-                VStack(spacing: 5) {
+                VStack(spacing: 16) {
                     Spacer()
 
                     // Logo — centered in upper half
@@ -31,32 +31,31 @@ struct RoomSetupView: View {
                         .scaledToFit()
                         .frame(width: 300)
 
-                    // JOIN button (asset art — text is baked in)
+                    // JOIN — design-system button built in code (like setup
+                    // profile). No glisten on the homepage — the beam is only
+                    // for the lobby JOIN + game-room START.
                     Button {
-                        AudioManager.shared.playSFX(.click)
                         vm.startBrowsing()
                         showBrowser = true
                     } label: {
-                        Image("join-button-new")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity)
+                        IdentityTitle(text: "JOIN", size: 26, strokeWidth: 4,
+                                      fill: .white, stroke: Color(hex: "E40063"), tilt: 0)
+                            .frame(maxWidth: .infinity, minHeight: 40)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 32)
+                    .buttonStyle(.suss)
+                    .padding(.horizontal, 20)   // design screen margin
 
-                    // CREATE button (asset art — text is baked in)
+                    // CREATE — same system, pink-gradient variant.
                     Button {
-                        AudioManager.shared.playSFX(.click)
                         vm.createRoom()
                     } label: {
-                        Image("create-button-new")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity)
+                        IdentityTitle(text: "CREATE", size: 26, strokeWidth: 4,
+                                      fill: .white, stroke: Color(hex: "E40063"), tilt: 0)
+                            .frame(maxWidth: .infinity, minHeight: 40)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 32)
+                    .buttonStyle(SussButtonStyle(
+                        gradientColors: [Color(hex: "FFC1EB"), Color(hex: "EB0067")]))
+                    .padding(.horizontal, 20)   // design screen margin
 
                     Spacer()
                 }

@@ -11,12 +11,30 @@
 // OWNER: Pafras (flow) / Agung + Marleen (restyle).
 
 import SwiftUI
+#if os(iOS)
+import AVFoundation
+#endif
 
 // MARK: - "LETS CALIBRATE"
 
 struct LetsCalibrateView: View {
-    /// Tap anywhere → advance to the put-finger / measuring steps.
+    /// Advance to the put-finger / measuring steps — fired by a TAP anywhere,
+    /// or AUTOMATICALLY when the finger is detected covering the camera.
     var onContinue: () -> Void = {}
+
+    #if os(iOS)
+    @State private var detector = FingerCoverDetector()
+    #endif
+    @State private var advanced = false   // fire onContinue exactly once
+
+    private func advance() {
+        guard !advanced else { return }
+        advanced = true
+        #if os(iOS)
+        detector.stop()   // release the camera BEFORE WarningView grabs it
+        #endif
+        onContinue()
+    }
 
     var body: some View {
         ZStack {
@@ -48,9 +66,120 @@ struct LetsCalibrateView: View {
         }
         // Whole screen is tappable → continue to the next calibration step.
         .contentShape(Rectangle())
-        .onTapGesture { onContinue() }
+        .onTapGesture { advance() }
+        #if os(iOS)
+        // Auto-continue: torch on; a finger covering the lens floods the frame
+        // red — the detector fires after ~0.6s of that (no tap needed).
+        .onAppear { detector.onCovered = { advance() }; detector.start() }
+        .onDisappear { detector.stop() }
+        #endif
     }
 }
+
+#if os(iOS)
+// Tiny back-camera watcher for the instruction screen. Torch ON: a finger on
+// the lens turns every frame bright RED (same physics the PPG uses). ~18
+// consecutive red-flooded frames (~0.6s) -> onCovered on the main thread.
+// Low-res, sparse-pixel sampling — negligible work. Simulator: no camera, so
+// it silently does nothing and the tap path still works.
+final class FingerCoverDetector: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+    var onCovered: (() -> Void)?
+
+    private let session = AVCaptureSession()
+    private let queue = DispatchQueue(label: "sanscore.fingercover")
+    private var coveredFrames = 0
+    private var fired = false
+
+    func start() {
+        fired = false
+        coveredFrames = 0
+        Task {
+            guard await AVCaptureDevice.requestAccess(for: .video) else { return }
+            queue.async { [self] in
+                if session.inputs.isEmpty { configure() }
+                if !session.isRunning { session.startRunning() }
+                torch(true)
+            }
+        }
+    }
+
+    /// Synchronous stop so the camera is FREE before WarningView starts its own.
+    func stop() {
+        queue.sync { [self] in
+            torch(false)
+            if session.isRunning { session.stopRunning() }
+        }
+    }
+
+    private func configure() {
+        session.beginConfiguration()
+        session.sessionPreset = .low          // avg colour needs no resolution
+        guard let dev = AVCaptureDevice.default(.builtInWideAngleCamera,
+                                                for: .video, position: .back),
+              let input = try? AVCaptureDeviceInput(device: dev),
+              session.canAddInput(input) else {
+            session.commitConfiguration(); return
+        }
+        session.addInput(input)
+        let out = AVCaptureVideoDataOutput()
+        out.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String:
+                                kCVPixelFormatType_32BGRA]
+        out.alwaysDiscardsLateVideoFrames = true
+        out.setSampleBufferDelegate(self, queue: queue)
+        if session.canAddOutput(out) { session.addOutput(out) }
+        session.commitConfiguration()
+    }
+
+    private func torch(_ on: Bool) {
+        guard let dev = AVCaptureDevice.default(.builtInWideAngleCamera,
+                                                for: .video, position: .back),
+              dev.hasTorch, (try? dev.lockForConfiguration()) != nil else { return }
+        dev.torchMode = on ? .on : .off
+        dev.unlockForConfiguration()
+    }
+
+    func captureOutput(_ output: AVCaptureOutput,
+                       didOutput sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        guard !fired,
+              let pb = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        CVPixelBufferLockBaseAddress(pb, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(pb) else { return }
+        let w = CVPixelBufferGetWidth(pb), h = CVPixelBufferGetHeight(pb)
+        let rowBytes = CVPixelBufferGetBytesPerRow(pb)
+        let ptr = base.assumingMemoryBound(to: UInt8.self)
+
+        // Sparse grid: every 16th pixel of every 16th row. BGRA layout.
+        var red = 0.0, green = 0.0, n = 0.0
+        var y = 0
+        while y < h {
+            var x = 0
+            while x < w {
+                let p = y * rowBytes + x * 4
+                green += Double(ptr[p + 1])
+                red   += Double(ptr[p + 2])
+                n += 1
+                x += 16
+            }
+            y += 16
+        }
+        guard n > 0 else { return }
+        red /= n; green /= n
+
+        // Finger + torch = bright, strongly red-dominant frame.
+        if red > 140 && red > green * 1.8 {
+            coveredFrames += 1
+        } else {
+            coveredFrames = 0
+        }
+        if coveredFrames >= 18 {   // ~0.6s at 30fps
+            fired = true
+            DispatchQueue.main.async { [weak self] in self?.onCovered?() }
+        }
+    }
+}
+#endif
 
 // Phone (static) + hand whose index finger swings onto the top-left camera
 // lens and covers it (covered pose = the reference art), then swings back —
