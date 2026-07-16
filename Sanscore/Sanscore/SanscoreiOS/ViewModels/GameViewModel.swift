@@ -91,9 +91,36 @@ final class GameViewModel {
     var baseline = Baseline(heartRate: 72, responseTime: 2.0, speechRate: 2.2)
     // --- The engine + the swappable capture modules ---
     private let engine: SusEngine
-    private let heart: HeartRateSource
+    private var heart: HeartRateSource
     private let speech: SpeechCapturing
     private let structure: StructureAnalyzing
+
+    // --- Apple Watch HR (optional, more accurate than camera PPG) ---
+    // The start screen asks "Do you have an Apple Watch?". If yes and one is
+    // paired with Sanscore installed, HR comes from the wrist instead of the
+    // camera. Both sources exist on device; `heart` points at whichever is
+    // chosen. nil on Simulator (mock is used there).
+    private let watchHeart: WatchHeartRate?
+    private let cameraHeart: HeartRateSource?
+    /// User's choice from the start screen. Defaults off = camera.
+    private(set) var useAppleWatch = false
+
+    #if DEBUG
+    // TEMP(pafras): forces Apple Watch HR on-device for testing before Marleen's
+    // "Do you have an Apple Watch?" screen exists. Set back to false for camera
+    // testing / before others build. Remove once the real screen lands.
+    static let debugForceAppleWatch = true
+    #endif
+    /// True when a paired watch has the Sanscore watch app installed. The UI
+    /// reads this to decide whether to OFFER the Apple Watch option.
+    var appleWatchAvailable: Bool { watchHeart?.isAvailable ?? false }
+    /// Marleen's start screen calls this when the user opts in/out. Falls back
+    /// to the camera if they opt in but no usable watch is present.
+    func setUseAppleWatch(_ on: Bool) {
+        useAppleWatch = on
+        guard let w = watchHeart, let c = cameraHeart else { return }
+        heart = (on && w.isAvailable) ? w : c
+    }
 
     // When the response-time clock started (set the moment the asker lets go).
     private var responseClockStart: Date?
@@ -111,10 +138,21 @@ final class GameViewModel {
         self.engine = engine
         #if targetEnvironment(simulator)
         self.heart = heart ?? MockHeartRate()
+        self.watchHeart = nil
+        self.cameraHeart = nil
         self.speech = speech ?? MockSpeech()
         self.structure = structure ?? MockStructure()
         #else
-        self.heart = heart ?? RealHeartRate()
+        // Build both HR sources; default to camera. The start screen can switch
+        // to the watch via setUseAppleWatch(true) if one is available.
+        let camera = heart ?? RealHeartRate()
+        let watch = WatchHeartRate()
+        self.cameraHeart = camera
+        self.watchHeart = watch
+        self.heart = camera
+        #if DEBUG
+        if Self.debugForceAppleWatch { self.heart = watch; useAppleWatch = true }
+        #endif
         self.speech = speech ?? RealSpeechCapture()
         // Real LLM only where Foundation Models exists + iOS 26; else mock.
         #if canImport(FoundationModels)
@@ -305,6 +343,7 @@ final class GameViewModel {
         lobbyMembers = []
         round = 0
         hasPlayedARound = false   // next session's first reveal = LET'S BEGIN again
+        isCalibrated = false      // room closed → next session calibrates from scratch
         waitToken += 1          // cancel any pending round timeout
         state = .idle
         // Auto-dismiss the home-screen notice after 3s so it doesn't linger.

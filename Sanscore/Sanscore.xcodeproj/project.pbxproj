@@ -7,11 +7,46 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AABB010000000000000000E1 /* SanscoreWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = F21866FC3008605A006E7A42 /* SanscoreWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AABB010000000000000000E5 /* ICON SUSS PINK.icon in Resources */ = {isa = PBXBuildFile; fileRef = F2AF6D002FFF267100A994EC /* ICON SUSS PINK.icon */; };
 		F2AF6D012FFF267100A994EC /* ICON SUSS PINK.icon in Resources */ = {isa = PBXBuildFile; fileRef = F2AF6D002FFF267100A994EC /* ICON SUSS PINK.icon */; };
 		F2B260062FF4DB15002AAAE5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2B260052FF4DB15002AAAE5 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		AABB010000000000000000E2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F2B25FF62FF4DB14002AAAE5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F21866FB3008605A006E7A42;
+			remoteInfo = "SanscoreWatch Watch App";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AABB010000000000000000E4 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				AABB010000000000000000E1 /* SanscoreWatch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AABB010000000000000000E3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F21866FB3008605A006E7A42 /* SanscoreWatch Watch App */;
+			targetProxy = AABB010000000000000000E2 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin PBXFileReference section */
+		F21866FC3008605A006E7A42 /* SanscoreWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SanscoreWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2AF6D002FFF267100A994EC /* ICON SUSS PINK.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "ICON SUSS PINK.icon"; sourceTree = "<group>"; };
 		F2B25FFE2FF4DB14002AAAE5 /* Sanscore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sanscore.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2B260052FF4DB15002AAAE5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -29,6 +64,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		F21866FD3008605A006E7A42 /* SanscoreWatch Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "SanscoreWatch Watch App";
+			sourceTree = "<group>";
+		};
 		F2B260002FF4DB14002AAAE5 /* Sanscore */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -40,6 +80,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		F21866F93008605A006E7A42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F2B25FFB2FF4DB14002AAAE5 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -56,6 +103,7 @@
 				F2B2600C2FF4DB15002AAAE5 /* Config/Signing.xcconfig */,
 				F2B260052FF4DB15002AAAE5 /* Assets.xcassets */,
 				F2B260002FF4DB14002AAAE5 /* Sanscore */,
+				F21866FD3008605A006E7A42 /* SanscoreWatch Watch App */,
 				F2B25FFF2FF4DB14002AAAE5 /* Products */,
 				F2AF6D002FFF267100A994EC /* ICON SUSS PINK.icon */,
 			);
@@ -65,6 +113,7 @@
 			isa = PBXGroup;
 			children = (
 				F2B25FFE2FF4DB14002AAAE5 /* Sanscore.app */,
+				F21866FC3008605A006E7A42 /* SanscoreWatch Watch App.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -72,6 +121,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		F21866FB3008605A006E7A42 /* SanscoreWatch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F21867063008605B006E7A42 /* Build configuration list for PBXNativeTarget "SanscoreWatch Watch App" */;
+			buildPhases = (
+				F21866F83008605A006E7A42 /* Sources */,
+				F21866F93008605A006E7A42 /* Frameworks */,
+				F21866FA3008605A006E7A42 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				F21866FD3008605A006E7A42 /* SanscoreWatch Watch App */,
+			);
+			name = "SanscoreWatch Watch App";
+			packageProductDependencies = (
+			);
+			productName = "SanscoreWatch Watch App";
+			productReference = F21866FC3008605A006E7A42 /* SanscoreWatch Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
 		F2B25FFD2FF4DB14002AAAE5 /* Sanscore */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F2B260092FF4DB15002AAAE5 /* Build configuration list for PBXNativeTarget "Sanscore" */;
@@ -79,10 +150,12 @@
 				F2B25FFA2FF4DB14002AAAE5 /* Sources */,
 				F2B25FFB2FF4DB14002AAAE5 /* Frameworks */,
 				F2B25FFC2FF4DB14002AAAE5 /* Resources */,
+				AABB010000000000000000E4 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AABB010000000000000000E3 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				F2B260002FF4DB14002AAAE5 /* Sanscore */,
@@ -104,6 +177,9 @@
 				LastSwiftUpdateCheck = 2660;
 				LastUpgradeCheck = 2660;
 				TargetAttributes = {
+					F21866FB3008605A006E7A42 = {
+						CreatedOnToolsVersion = 26.6;
+					};
 					F2B25FFD2FF4DB14002AAAE5 = {
 						CreatedOnToolsVersion = 26.6;
 					};
@@ -125,11 +201,20 @@
 			projectRoot = "";
 			targets = (
 				F2B25FFD2FF4DB14002AAAE5 /* Sanscore */,
+				F21866FB3008605A006E7A42 /* SanscoreWatch Watch App */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		F21866FA3008605A006E7A42 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AABB010000000000000000E5 /* ICON SUSS PINK.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F2B25FFC2FF4DB14002AAAE5 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -142,6 +227,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		F21866F83008605A006E7A42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F2B25FFA2FF4DB14002AAAE5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -152,6 +244,76 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		F21867043008605B006E7A42 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F2B2600C2FF4DB15002AAAE5 /* Config/Signing.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "ICON SUSS PINK";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "SanscoreWatch Watch App/SanscoreWatch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SussMeter;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sanscore reads your heart rate during the game.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "$(SANSCORE_BUNDLE_ID)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(inherited).watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Debug;
+		};
+		F21867053008605B006E7A42 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F2B2600C2FF4DB15002AAAE5 /* Config/Signing.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "ICON SUSS PINK";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "SanscoreWatch Watch App/SanscoreWatch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SussMeter;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sanscore reads your heart rate during the game.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = "$(SANSCORE_BUNDLE_ID)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(inherited).watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Release;
+		};
 		F2B260072FF4DB15002AAAE5 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -278,13 +440,18 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = "ICON SUSS PINK";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = Sanscore/Sanscore.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Sanscore/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SussMeter;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Read your heartbeat from your fingertip.";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Find nearby players to join your room.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sanscore uses your Apple Watch heart rate during the game.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Sanscore starts a heart-rate session on your Apple Watch during the game.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sanscore uses the local network to find and join nearby game rooms on the same Wi-Fi.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hear your answer.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick a lobby photo.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Turn your answer into text.";
@@ -317,13 +484,18 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = "ICON SUSS PINK";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = Sanscore/Sanscore.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Sanscore/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SussMeter;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Read your heartbeat from your fingertip.";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Find nearby players to join your room.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sanscore uses your Apple Watch heart rate during the game.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Sanscore starts a heart-rate session on your Apple Watch during the game.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sanscore uses the local network to find and join nearby game rooms on the same Wi-Fi.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hear your answer.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick a lobby photo.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Turn your answer into text.";
@@ -352,6 +524,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		F21867063008605B006E7A42 /* Build configuration list for PBXNativeTarget "SanscoreWatch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F21867043008605B006E7A42 /* Debug */,
+				F21867053008605B006E7A42 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		F2B25FF92FF4DB14002AAAE5 /* Build configuration list for PBXProject "Sanscore" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

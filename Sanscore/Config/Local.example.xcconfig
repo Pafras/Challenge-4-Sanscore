@@ -6,4 +6,4 @@
 //   (or read it off Signing & Capabilities once your team is selected).
 
 DEVELOPMENT_TEAM = YOURTEAMID
-PRODUCT_BUNDLE_IDENTIFIER = com.yourname.Sanscore
+SANSCORE_BUNDLE_ID = com.yourname.Sanscore
