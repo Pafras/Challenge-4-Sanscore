@@ -109,7 +109,9 @@ final class GameViewModel {
     // TEMP(pafras): forces Apple Watch HR on-device for testing before Marleen's
     // "Do you have an Apple Watch?" screen exists. Set back to false for camera
     // testing / before others build. Remove once the real screen lands.
-    static let debugForceAppleWatch = true
+    // v1 ships iPhone-only (watch app un-embedded) — keep false; flip to true
+    // only when locally testing the watch target in v1.1 work.
+    static let debugForceAppleWatch = false
     #endif
     /// True when a paired watch has the Sanscore watch app installed. The UI
     /// reads this to decide whether to OFFER the Apple Watch option.

@@ -7,43 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AABB010000000000000000E1 /* SanscoreWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = F21866FC3008605A006E7A42 /* SanscoreWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AABB010000000000000000E5 /* ICON SUSS PINK.icon in Resources */ = {isa = PBXBuildFile; fileRef = F2AF6D002FFF267100A994EC /* ICON SUSS PINK.icon */; };
 		F2AF6D012FFF267100A994EC /* ICON SUSS PINK.icon in Resources */ = {isa = PBXBuildFile; fileRef = F2AF6D002FFF267100A994EC /* ICON SUSS PINK.icon */; };
 		F2B260062FF4DB15002AAAE5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2B260052FF4DB15002AAAE5 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		AABB010000000000000000E2 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F2B25FF62FF4DB14002AAAE5 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F21866FB3008605A006E7A42;
-			remoteInfo = "SanscoreWatch Watch App";
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		AABB010000000000000000E4 /* Embed Watch Content */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
-			dstSubfolderSpec = 16;
-			files = (
-				AABB010000000000000000E1 /* SanscoreWatch Watch App.app in Embed Watch Content */,
-			);
-			name = "Embed Watch Content";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		AABB010000000000000000E3 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = F21866FB3008605A006E7A42 /* SanscoreWatch Watch App */;
-			targetProxy = AABB010000000000000000E2 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin PBXFileReference section */
 		F21866FC3008605A006E7A42 /* SanscoreWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SanscoreWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -150,12 +117,10 @@
 				F2B25FFA2FF4DB14002AAAE5 /* Sources */,
 				F2B25FFB2FF4DB14002AAAE5 /* Frameworks */,
 				F2B25FFC2FF4DB14002AAAE5 /* Resources */,
-				AABB010000000000000000E4 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				AABB010000000000000000E3 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				F2B260002FF4DB14002AAAE5 /* Sanscore */,
