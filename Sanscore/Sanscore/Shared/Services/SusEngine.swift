@@ -26,25 +26,41 @@ struct SusSensitivity {
     var heartRate: Double = 0.3
     var responseTime: Double = 1.0   // 2x slower than normal = fully sus
     var speechRate: Double = 0.5
+
+    // Wobble to ignore BEFORE anything counts as suspicious. Camera PPG reads
+    // ±10-15 BPM off, so ~8% of a 72 BPM baseline is sensor noise, not nerves.
+    // Without this every calm player still picked up heart-rate sus.
+    // Response time and speech rate have no sensor noise floor -> 0.
+    var heartRateDeadband: Double = 0.08
 }
 
 struct SusEngine {
     var weights = SusWeights()
     var sensitivity = SusSensitivity()
 
+    // Which side of the baseline is actually a tell.
+    // Answering FASTER than your normal, or a CALMER heart, is not suspicious —
+    // if anything it reads as honest — so those signals only count upward.
+    // Speech rate stays two-sided: halting AND rushed speech both read nervous.
+    enum Deviation { case aboveOnly, both }
+
     // Turn one raw signal into 0 (normal) ... 1 (very sus), based on how far
-    // it deviates from the player's own baseline. abs() means BOTH too-high
-    // and too-low count as suspicious (slow AND rushed answers look sus).
-    func normalize(_ value: Double, baseline: Double, sensitivity: Double) -> Double {
+    // it deviates from the player's own baseline, ignoring `deadband` of
+    // wobble first (sensor noise + normal human variation).
+    func normalize(_ value: Double, baseline: Double, sensitivity: Double,
+                   deviation: Deviation = .both, deadband: Double = 0) -> Double {
         guard baseline > 0, sensitivity > 0 else { return 0 }
-        let deviation = abs(value - baseline) / baseline
-        return min(deviation / sensitivity, 1.0)
+        let signed = (value - baseline) / baseline
+        let amount = deviation == .aboveOnly ? max(signed, 0) : abs(signed)
+        return min(max(amount - deadband, 0) / sensitivity, 1.0)
     }
 
     // The whole fusion. structureScore already comes 0-1 from the LLM.
     func score(signals: Signals, baseline: Baseline, structureScore: Double) -> SusResult {
-        let h = normalize(signals.heartRate, baseline: baseline.heartRate, sensitivity: sensitivity.heartRate)
-        let t = normalize(signals.responseTime, baseline: baseline.responseTime, sensitivity: sensitivity.responseTime)
+        let h = normalize(signals.heartRate, baseline: baseline.heartRate, sensitivity: sensitivity.heartRate,
+                          deviation: .aboveOnly, deadband: sensitivity.heartRateDeadband)
+        let t = normalize(signals.responseTime, baseline: baseline.responseTime, sensitivity: sensitivity.responseTime,
+                          deviation: .aboveOnly)
         let s = normalize(signals.speechRate, baseline: baseline.speechRate, sensitivity: sensitivity.speechRate)
         let st = clamp01(structureScore)
 

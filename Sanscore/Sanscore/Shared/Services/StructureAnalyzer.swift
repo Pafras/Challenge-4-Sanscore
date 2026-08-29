@@ -35,12 +35,24 @@ struct AnswerStructure {
 @available(iOS 26.0, *)
 struct StructureAnalyzer: StructureAnalyzing {
 
+    // At or below `honestFloor` the raw score means "normal honest answer" (0);
+    // honestFloor + susSpan means "maxed out sus" (1). Tune these from playtests
+    // before touching the weights — they move the whole distribution at once.
+    private static let honestFloor = 0.35
+    private static let susSpan = 0.45
+
     func analyze(question: String, answer: String) async throws -> StructureResult {
         // TODO(agung): tune this persona + prompt. Playtest the wording.
         let session = LanguageModelSession(instructions: """
             You are a playful party-game lie detector. You judge only the STRUCTURE
             of an answer (is it evasive, vague, confident, coherent), never whether it is factually
             true. Be fun, not mean. Stay consistent.
+
+            Most answers in this game are honest, casual and SHORT. A short, plain,
+            direct answer is neither evasive nor vague — score it near 0. Being shy,
+            quiet or softly spoken is not lying. Only score above 0.6 when the person
+            genuinely dodges the question, contradicts themselves, or rambles without
+            ever answering it. Use the full 0-1 range; do not park everything in the middle.
             """)
 
         let prompt = """
@@ -52,9 +64,18 @@ struct StructureAnalyzer: StructureAnalyzing {
         let out = try await session.respond(to: prompt, generating: AnswerStructure.self)
         let s = out.content
 
-        // TODO(agung): decide how to combine the fields into one 0-1 score.
-        // First guess: weight evasiveness more than vagueness.
-        let score = min(max(0.25 * s.evasiveness + 0.25 * s.vagueness + 0.25 * s.timidity + 0.25 * s.incoherence, 0), 1)
+        // Dodging the question is the strongest tell; being timid is the weakest
+        // (shy honest players were reading as liars), so it counts least.
+        let raw = 0.35 * s.evasiveness
+                + 0.25 * s.vagueness
+                + 0.25 * s.incoherence
+                + 0.15 * s.timidity
+
+        // Recentre. All four fields are one-directional "badness" and a language
+        // model almost never answers 0 — an honest, casual answer still comes back
+        // around 0.4. Raw, that put a permanent floor under every score and made
+        // everyone read as a liar. So: drop the floor, stretch what is left.
+        let score = min(max((raw - Self.honestFloor) / Self.susSpan, 0), 1)
         return StructureResult(score: score, verdict: s.verdict)
     }
 }

@@ -88,7 +88,11 @@ final class GameViewModel {
     // --- Per-player baseline from the calibration round ---
     // ponytail: default baseline lets the app run before calibration is built.
     // TODO(marleen): fill this from the real calibration round (2-3 easy Qs).
-    var baseline = Baseline(heartRate: 72, responseTime: 2.0, speechRate: 2.2)
+    // speechRate 3.0 = words/sec of ordinary relaxed speech. It used to be 2.2,
+    // which is slower than most people actually talk — so every normal answer
+    // already scored a big deviation and read as sus. Only the HR baseline is
+    // measured for real; these two are still defaults (see calibration below).
+    var baseline = Baseline(heartRate: 72, responseTime: 2.0, speechRate: 3.0)
     // --- The engine + the swappable capture modules ---
     private let engine: SusEngine
     private var heart: HeartRateSource
