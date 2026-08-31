@@ -96,6 +96,15 @@ struct InterrogatorHoldToQuestionView: View {
                 .foregroundStyle(.white.opacity(0.85))
                 .padding(.top, 80)
 
+            // Speech is recognised in English only (see RealSpeechCapture), so
+            // say so rather than letting people wonder why the transcript is
+            // gibberish. It does not affect anyone's score either way.
+            Text("Ask in English.")
+                .sussFont(.callout)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.white.opacity(0.7))
+                .padding(.top, 10)
+
             Spacer()
 
             MicHoldButton(

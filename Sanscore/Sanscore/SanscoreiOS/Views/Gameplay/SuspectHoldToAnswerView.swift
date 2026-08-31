@@ -95,6 +95,15 @@ struct SuspectHoldToAnswerView: View {
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.top, 80)
 
+                // Speech is recognised in English only (see RealSpeechCapture).
+                // The score does not care what language you answer in, but the
+                // captions and the verdict line do.
+                Text("Answer in English.")
+                    .sussFont(.callout)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .padding(.top, 10)
+
                 Spacer()
 
                 MicHoldButton(

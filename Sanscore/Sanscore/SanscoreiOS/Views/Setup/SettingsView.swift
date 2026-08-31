@@ -27,6 +27,23 @@ struct SettingsView: View {
 
     private let pink = Color(hex: "E40063")
 
+    // Apple Intelligence powers the verdict line only — never the score.
+    private var llmNote: String? {
+        #if canImport(FoundationModels)
+        guard #available(iOS 26.0, *) else { return nil }
+        switch StructureAnalyzer.status {
+        case .offInSettings:
+            return String(localized: "Turn on Apple Intelligence in Settings for sharper, funnier verdicts. Scores are unaffected.")
+        case .stillDownloading:
+            return String(localized: "Apple Intelligence is still downloading — verdicts get funnier once it finishes.")
+        case .available, .unsupported:
+            return nil
+        }
+        #else
+        return nil
+        #endif
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             header
@@ -55,6 +72,18 @@ struct SettingsView: View {
                 labelRow(icon: "captions.bubble.fill", title: "CLOSE\nCAPTIONS")
                 Spacer()
                 SussToggle(isOn: $closedCaptions)
+            }
+
+            // Only shown when the player can actually DO something about it: a
+            // supported iPhone with Apple Intelligence switched off, or one still
+            // downloading the model. An unsupported iPhone is told nothing — the
+            // game scores identically either way, and the LLM only writes the
+            // funny line, so there is nothing to apologise for.
+            if let note = llmNote {
+                Text(note)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer()
