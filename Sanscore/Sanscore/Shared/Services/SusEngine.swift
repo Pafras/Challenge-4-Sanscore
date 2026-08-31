@@ -15,9 +15,12 @@ struct SusWeights {
     var heartRate: Double = 0.3
     var responseTime: Double = 0.2
     var speechRate: Double = 0.2
-    var structure: Double = 0.3   // the LLM's answer-structure score
+    // Mid-answer pausing. This slot used to hold the LLM's answer-structure
+    // score; it was handed to speech timing so that every iPhone can produce
+    // all four signals, with or without Apple Intelligence.
+    var hesitation: Double = 0.3
 
-    var sum: Double { heartRate + responseTime + speechRate + structure }
+    var sum: Double { heartRate + responseTime + speechRate + hesitation }
 }
 
 // How big a deviation counts as "maxed out sus" (score 1.0) for each signal.
@@ -55,19 +58,20 @@ struct SusEngine {
         return min(max(amount - deadband, 0) / sensitivity, 1.0)
     }
 
-    // The whole fusion. structureScore already comes 0-1 from the LLM.
-    func score(signals: Signals, baseline: Baseline, structureScore: Double) -> SusResult {
+    // The whole fusion. Every signal is either measured against the player's own
+    // baseline or already 0-1 (hesitation), so no model is involved anywhere.
+    func score(signals: Signals, baseline: Baseline) -> SusResult {
         let h = normalize(signals.heartRate, baseline: baseline.heartRate, sensitivity: sensitivity.heartRate,
                           deviation: .aboveOnly, deadband: sensitivity.heartRateDeadband)
         let t = normalize(signals.responseTime, baseline: baseline.responseTime, sensitivity: sensitivity.responseTime,
                           deviation: .aboveOnly)
         let s = normalize(signals.speechRate, baseline: baseline.speechRate, sensitivity: sensitivity.speechRate)
-        let st = clamp01(structureScore)
+        let p = clamp01(signals.hesitation)
 
         let raw = weights.heartRate * h
                 + weights.responseTime * t
                 + weights.speechRate * s
-                + weights.structure * st
+                + weights.hesitation * p
 
         let final = clamp01(raw)
         return SusResult(score: final, band: SusBand(score: final), verdict: "")

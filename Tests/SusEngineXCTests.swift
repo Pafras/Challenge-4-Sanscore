@@ -16,16 +16,16 @@ final class SusEngineXCTests: XCTestCase {
     let baseline = Baseline(heartRate: 72, responseTime: 2.0, speechRate: 3.0)
 
     func testCalmAnswerIsTruth() {
-        let calm = Signals(heartRate: 72, responseTime: 2.0, speechRate: 3.0, answerText: "yes")
-        let r = engine.score(signals: calm, baseline: baseline, structureScore: 0.0)
+        let calm = Signals(heartRate: 72, responseTime: 2.0, speechRate: 3.0, hesitation: 0.0, answerText: "yes")
+        let r = engine.score(signals: calm, baseline: baseline)
         XCTAssertEqual(r.score, 0.0, accuracy: 0.001)
         XCTAssertEqual(r.band, .veryTruth)
     }
 
     func testWorkedExampleIsLiar() {
-        let sus = Signals(heartRate: 92, responseTime: 4.1, speechRate: 1.6, answerText: "uh i was home")
-        let r = engine.score(signals: sus, baseline: baseline, structureScore: 0.78)
-        XCTAssertEqual(r.score, 0.818, accuracy: 0.005)
+        let sus = Signals(heartRate: 92, responseTime: 4.1, speechRate: 1.6, hesitation: 0.9, answerText: "uh i was home")
+        let r = engine.score(signals: sus, baseline: baseline)
+        XCTAssertEqual(r.score, 0.854, accuracy: 0.005)
         XCTAssertEqual(r.band, .verySus)
     }
 
@@ -33,8 +33,8 @@ final class SusEngineXCTests: XCTestCase {
     // BPM off from camera jitter, answering FAST, talking at a normal pace,
     // giving a short casual answer — used to come out "Kinda Sus" (~0.47).
     func testTypicalHonestAnswerReadsAsTruth() {
-        let honest = Signals(heartRate: 78, responseTime: 1.0, speechRate: 3.1, answerText: "yeah, i did")
-        let r = engine.score(signals: honest, baseline: baseline, structureScore: 0.22)
+        let honest = Signals(heartRate: 78, responseTime: 1.0, speechRate: 3.1, hesitation: 0.1, answerText: "yeah, i did")
+        let r = engine.score(signals: honest, baseline: baseline)
         XCTAssertLessThan(r.score, 0.25)
         XCTAssertEqual(r.band, .veryTruth)
     }

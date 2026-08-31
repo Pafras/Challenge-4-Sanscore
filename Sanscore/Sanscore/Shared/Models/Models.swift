@@ -11,6 +11,7 @@ struct Signals {
     var heartRate: Double      // beats per minute, e.g. 92
     var responseTime: Double   // seconds from "done asking" to first word, e.g. 4.1
     var speechRate: Double     // words per second, e.g. 1.6
+    var hesitation: Double     // 0-1, share of the answer spent pausing mid-sentence
     var answerText: String     // what SFSpeechRecognizer transcribed
 }
 
@@ -21,12 +22,6 @@ struct Baseline {
     var heartRate: Double
     var responseTime: Double
     var speechRate: Double
-}
-
-// What the LLM (Foundation Models) returns after reading the answer text.
-struct StructureResult {
-    var score: Double     // 0 = direct/honest structure, 1 = very evasive
-    var verdict: String   // one funny line to show on the result screen
 }
 
 // The final output the UI shows.

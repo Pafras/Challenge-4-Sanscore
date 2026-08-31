@@ -23,8 +23,8 @@ func runSusEngineTests() {
     let baseline = Baseline(heartRate: 72, responseTime: 2.0, speechRate: 3.0)
 
     // 1) A perfectly calm, direct answer should score near 0 (Truth).
-    let calm = Signals(heartRate: 72, responseTime: 2.0, speechRate: 3.0, answerText: "yes")
-    let calmResult = engine.score(signals: calm, baseline: baseline, structureScore: 0.0)
+    let calm = Signals(heartRate: 72, responseTime: 2.0, speechRate: 3.0, hesitation: 0.0, answerText: "yes")
+    let calmResult = engine.score(signals: calm, baseline: baseline)
     assert(approxEqual(calmResult.score, 0.0), "calm answer should be ~0, got \(calmResult.score)")
     assert(calmResult.band == .veryTruth, "calm answer should land in Very Truth band")
 
@@ -32,18 +32,18 @@ func runSusEngineTests() {
     //    HR 92 (base 72, sens 0.3, above-only, 0.08 deadband) -> (0.278-0.08)/0.3 = 0.660
     //    time 4.1 (base 2.0, sens 1.0, above-only) -> dev 1.05 -> clamp 1.0
     //    rate 1.6 (base 3.0, sens 0.5) -> dev 0.467/0.5 = 0.933
-    //    structure 0.78 (what a dodgy raw 0.70 becomes after recentring)
-    //    score = 0.3*0.660 + 0.2*1.0 + 0.2*0.933 + 0.3*0.78 = 0.818
-    let sus = Signals(heartRate: 92, responseTime: 4.1, speechRate: 1.6, answerText: "uh i was home")
-    let susResult = engine.score(signals: sus, baseline: baseline, structureScore: 0.78)
-    assert(approxEqual(susResult.score, 0.818, tol: 0.005), "worked example expected ~0.818, got \(susResult.score)")
+    //    hesitation 0.9 (long stalls mid-answer), already 0-1
+    //    score = 0.3*0.660 + 0.2*1.0 + 0.2*0.933 + 0.3*0.9 = 0.854
+    let sus = Signals(heartRate: 92, responseTime: 4.1, speechRate: 1.6, hesitation: 0.9, answerText: "uh i was home")
+    let susResult = engine.score(signals: sus, baseline: baseline)
+    assert(approxEqual(susResult.score, 0.854, tol: 0.005), "worked example expected ~0.854, got \(susResult.score)")
     assert(susResult.band == .verySus, "worked example should land in Very Sus band, got \(susResult.band.label)")
 
     // 2b) The bug this tuning fixed: an ordinary honest player (heart rate a few
     //     BPM off from camera jitter, answering fast, normal talking pace, short
     //     casual answer) used to come out "Kinda Sus" (~0.47).
-    let honest = Signals(heartRate: 78, responseTime: 1.0, speechRate: 3.1, answerText: "yeah, i did")
-    let honestResult = engine.score(signals: honest, baseline: baseline, structureScore: 0.22)
+    let honest = Signals(heartRate: 78, responseTime: 1.0, speechRate: 3.1, hesitation: 0.1, answerText: "yeah, i did")
+    let honestResult = engine.score(signals: honest, baseline: baseline)
     assert(honestResult.score < 0.25, "honest answer should stay under 0.25, got \(honestResult.score)")
     assert(honestResult.band == .veryTruth, "honest answer should land in Very Truth, got \(honestResult.band.label)")
 

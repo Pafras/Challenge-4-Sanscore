@@ -97,7 +97,9 @@ final class GameViewModel {
     private let engine: SusEngine
     private var heart: HeartRateSource
     private let speech: SpeechCapturing
-    private let structure: StructureAnalyzing
+    // nil where the device has no Apple Intelligence — the verdict then comes
+    // from VerdictLines instead. The SCORE never depends on this.
+    private let structure: StructureAnalyzing?
 
     // --- Apple Watch HR (optional, more accurate than camera PPG) ---
     // The start screen asks "Do you have an Apple Watch?". If yes and one is
@@ -160,15 +162,18 @@ final class GameViewModel {
         if Self.debugForceAppleWatch { self.heart = watch; useAppleWatch = true }
         #endif
         self.speech = speech ?? RealSpeechCapture()
-        // Real LLM only where Foundation Models exists + iOS 26; else mock.
+        // Real LLM only where Foundation Models exists, the OS is new enough AND
+        // Apple Intelligence is actually usable on this device. Anywhere else the
+        // verdict comes from VerdictLines — no mock on a real phone, or every
+        // round would show the same canned sentence.
         #if canImport(FoundationModels)
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), StructureAnalyzer.isAvailable {
             self.structure = structure ?? StructureAnalyzer()
         } else {
-            self.structure = structure ?? MockStructure()
+            self.structure = structure
         }
         #else
-        self.structure = structure ?? MockStructure()
+        self.structure = structure
         #endif
         #endif
         // Identity = device name + unique install id, so two "iPhone"s never
@@ -873,22 +878,19 @@ final class GameViewModel {
         let transcript = speechResult.text.isEmpty ? nil : speechResult.text   // closed captions
         resultTranscript = transcript
 
-        // The LLM is the only step that can fail; fall back to neutral 0.5.
-        let structureResult: StructureResult
-        if speechResult.text.isEmpty {
-            structureResult = StructureResult(score: 0.5, verdict: "Couldn't hear you — say that again louder.")
-        } else {
-            structureResult = (try? await structure.analyze(question: currentQuestion, answer: speechResult.text))
-                ?? StructureResult(score: 0.5, verdict: "The judge shrugged.")
-        }
-
         let signals = Signals(heartRate: bpm,
                               responseTime: responseTime,
                               speechRate: speechResult.speechRate,
+                              hesitation: speechResult.hesitation,
                               answerText: speechResult.text)
 
-        var result = engine.score(signals: signals, baseline: baseline, structureScore: structureResult.score)
-        result.verdict = structureResult.verdict   // the LLM writes the funny line
+        // Score first, from measurements only — identical maths on every phone.
+        var result = engine.score(signals: signals, baseline: baseline)
+        // Then the line. The LLM writes it where it exists; otherwise a local
+        // line for the band the needle landed on. Either way it is only text,
+        // so a missing/failing LLM can no longer move anybody's score.
+        result.verdict = await verdict(for: result.band, answer: speechResult.text,
+                                       bpm: recordedBPM, hesitation: speechResult.hesitation)
         lastResult = result
         hasPlayedARound = true
 
@@ -900,6 +902,20 @@ final class GameViewModel {
         state = .result
 
         room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict, bpm: recordedBPM, transcript: transcript)))
+    }
+
+    // The funny line under the meter. The LLM gets first refusal, but it is
+    // optional in both senses: absent on most iPhones, and allowed to fail.
+    private func verdict(for band: SusBand, answer: String,
+                         bpm: Int, hesitation: Double) async -> String {
+        guard !answer.isEmpty else { return VerdictLines.unheard }
+        if let structure,
+           let line = try? await structure.verdictLine(question: currentQuestion, answer: answer,
+                                                       band: band, bpm: bpm, hesitation: hesitation),
+           !line.isEmpty {
+            return line
+        }
+        return VerdictLines.random(for: band)
     }
 
     // Only the host (or a solo device) drives the pace. Non-host clients wait
