@@ -16,12 +16,17 @@ import SwiftUI
 
 struct SettingsView: View {
     var onClose: () -> Void
+    // Optional so #Preview still works without a live game.
+    var vm: GameViewModel? = nil
 
     // Persisted settings. Other views can read the same @AppStorage keys.
     @AppStorage("settings.language")  private var language = "EN"       // "EN" / "ID"
     @AppStorage("settings.sfxVolume") private var sfxVolume  = 0.7
     @AppStorage("settings.bgmVolume") private var bgmVolume  = 0.6
     @AppStorage("settings.closedCaptions") private var closedCaptions = false
+    // Remembered across launches; GameViewModel reads the same key at startup so
+    // the choice applies before this drawer is ever opened.
+    @AppStorage("settings.useAppleWatch") private var useAppleWatch = false
 
     // Sliders write UserDefaults; poke the live players so it applies instantly.
 
@@ -72,6 +77,19 @@ struct SettingsView: View {
                 labelRow(icon: "captions.bubble.fill", title: "CLOSE\nCAPTIONS")
                 Spacer()
                 SussToggle(isOn: $closedCaptions)
+            }
+
+            // APPLE WATCH — hidden unless a watch with Sanscore installed is
+            // actually paired, since there is nothing to switch on otherwise.
+            // On: heart rate comes from the wrist DURING the answer instead of
+            // a fingertip on the camera afterwards.
+            if vm?.appleWatchAvailable == true {
+                HStack {
+                    labelRow(icon: "applewatch", title: "APPLE\nWATCH")
+                    Spacer()
+                    SussToggle(isOn: $useAppleWatch)
+                }
+                .onChange(of: useAppleWatch) { _, on in vm?.setUseAppleWatch(on) }
             }
 
             // Only shown when the player can actually DO something about it: a

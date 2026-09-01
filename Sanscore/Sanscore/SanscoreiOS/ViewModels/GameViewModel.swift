@@ -151,15 +151,30 @@ final class GameViewModel {
         self.speech = speech ?? MockSpeech()
         self.structure = structure ?? MockStructure()
         #else
-        // Build both HR sources; default to camera. The start screen can switch
-        // to the watch via setUseAppleWatch(true) if one is available.
+        // v1 ships iPhone-only: the watch app is not embedded, so nothing can be
+        // installed on a wrist and WatchHeartRate would only ask for HealthKit
+        // permission it never uses. Building it is what triggered that prompt at
+        // launch, so it is not built at all. Restore the two commented lines when
+        // the watch app is embedded again in v1.1 — everything downstream
+        // (setUseAppleWatch, the Settings row, the startup restore) already works.
         let camera = heart ?? RealHeartRate()
-        let watch = WatchHeartRate()
+        // let watch = WatchHeartRate()
         self.cameraHeart = camera
-        self.watchHeart = watch
+        self.watchHeart = nil
         self.heart = camera
+        // Restore the player's remembered choice from Settings. Falls back to the
+        // camera on its own if the watch went away since last launch. Dormant in
+        // v1 (watchHeart is nil), live again the moment the watch app returns.
+        if UserDefaults.standard.bool(forKey: "settings.useAppleWatch"),
+           let watch = watchHeart, watch.isAvailable {
+            self.heart = watch
+            useAppleWatch = true
+        }
         #if DEBUG
-        if Self.debugForceAppleWatch { self.heart = watch; useAppleWatch = true }
+        if Self.debugForceAppleWatch, let watch = watchHeart {
+            self.heart = watch
+            useAppleWatch = true
+        }
         #endif
         self.speech = speech ?? RealSpeechCapture()
         // Real LLM only where Foundation Models exists, the OS is new enough AND

@@ -102,7 +102,7 @@ struct RoomSetupView: View {
             }
             .sussDrawerDim(showSettings)
             .sheet(isPresented: $showSettings) {
-                SettingsView(onClose: { showSettings = false })
+                SettingsView(onClose: { showSettings = false }, vm: vm)
             }
         }
     }

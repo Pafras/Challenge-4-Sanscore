@@ -414,8 +414,6 @@
 				INFOPLIST_KEY_CFBundleDisplayName = SussMeter;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Read your heartbeat from your fingertip.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sanscore uses your Apple Watch heart rate during the game.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Sanscore starts a heart-rate session on your Apple Watch during the game.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sanscore uses the local network to find and join nearby game rooms on the same Wi-Fi.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hear your answer.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick a lobby photo.";
@@ -457,8 +455,6 @@
 				INFOPLIST_KEY_CFBundleDisplayName = SussMeter;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Read your heartbeat from your fingertip.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Sanscore uses your Apple Watch heart rate during the game.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Sanscore starts a heart-rate session on your Apple Watch during the game.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Sanscore uses the local network to find and join nearby game rooms on the same Wi-Fi.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hear your answer.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Pick a lobby photo.";
