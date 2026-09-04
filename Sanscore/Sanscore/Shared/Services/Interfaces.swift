@@ -38,6 +38,13 @@ struct SpeechResult {
     var text: String         // the full transcript, fed to the LLM
     var responseTime: Double // seconds from "done asking" to first word
 
+    // 0 = spoke straight through, 1 = full of long mid-answer silences.
+    // Measured from the gaps BETWEEN words, so it works in any language and
+    // needs no model — see RealSpeechCapture.buildResult. This is the signal
+    // that replaced the LLM's opinion in the score: every iPhone can produce
+    // it, so two players in the same room are judged by the same rules.
+    var hesitation: Double = 0
+
     var speechRate: Double {
         guard duration > 0 else { return 0 }
         return Double(wordCount) / duration
@@ -53,8 +60,15 @@ protocol SpeechCapturing {
     var liveTranscript: String? { get }
 }
 
-// Judges the MEANING/STRUCTURE of the answer text with the LLM.
-// OWNER: Agung. See StructureAnalyzer.swift for the skeleton to fill.
+// Reads what the answer MEANS with the on-device LLM: a 0-1 structure score
+// that becomes a fifth signal, plus the funny verdict line. Only exists on
+// iPhones with Apple Intelligence — GameViewModel holds this as an optional and
+// scores without it everywhere else (see VerdictLines for the fallback line).
+// OWNER: Agung. See StructureAnalyzer.swift.
 protocol StructureAnalyzing {
-    func analyze(question: String, answer: String) async throws -> StructureResult
+    /// `measuredBand`, `bpm` and `hesitation` describe what the SENSORS alone
+    /// concluded. They are context so the verdict can name something concrete
+    /// ("you paused for half the answer") and match the meter's direction.
+    func analyze(question: String, answer: String,
+                 measuredBand: SusBand, bpm: Int, hesitation: Double) async throws -> StructureResult
 }

@@ -88,12 +88,47 @@ final class GameViewModel {
     // --- Per-player baseline from the calibration round ---
     // ponytail: default baseline lets the app run before calibration is built.
     // TODO(marleen): fill this from the real calibration round (2-3 easy Qs).
-    var baseline = Baseline(heartRate: 72, responseTime: 2.0, speechRate: 2.2)
+    // speechRate 3.0 = words/sec of ordinary relaxed speech. It used to be 2.2,
+    // which is slower than most people actually talk — so every normal answer
+    // already scored a big deviation and read as sus. Only the HR baseline is
+    // measured for real; these two are still defaults (see calibration below).
+    var baseline = Baseline(heartRate: 72, responseTime: 2.0, speechRate: 3.0)
     // --- The engine + the swappable capture modules ---
     private let engine: SusEngine
-    private let heart: HeartRateSource
+    private var heart: HeartRateSource
     private let speech: SpeechCapturing
-    private let structure: StructureAnalyzing
+    // nil where the device has no Apple Intelligence — the verdict then comes
+    // from VerdictLines instead. The SCORE never depends on this.
+    private let structure: StructureAnalyzing?
+
+    // --- Apple Watch HR (optional, more accurate than camera PPG) ---
+    // The start screen asks "Do you have an Apple Watch?". If yes and one is
+    // paired with Sanscore installed, HR comes from the wrist instead of the
+    // camera. Both sources exist on device; `heart` points at whichever is
+    // chosen. nil on Simulator (mock is used there).
+    private let watchHeart: WatchHeartRate?
+    private let cameraHeart: HeartRateSource?
+    /// User's choice from the start screen. Defaults off = camera.
+    private(set) var useAppleWatch = false
+
+    #if DEBUG
+    // TEMP(pafras): forces Apple Watch HR on-device for testing before Marleen's
+    // "Do you have an Apple Watch?" screen exists. Set back to false for camera
+    // testing / before others build. Remove once the real screen lands.
+    // v1 ships iPhone-only (watch app un-embedded) — keep false; flip to true
+    // only when locally testing the watch target in v1.1 work.
+    static let debugForceAppleWatch = false
+    #endif
+    /// True when a paired watch has the Sanscore watch app installed. The UI
+    /// reads this to decide whether to OFFER the Apple Watch option.
+    var appleWatchAvailable: Bool { watchHeart?.isAvailable ?? false }
+    /// Marleen's start screen calls this when the user opts in/out. Falls back
+    /// to the camera if they opt in but no usable watch is present.
+    func setUseAppleWatch(_ on: Bool) {
+        useAppleWatch = on
+        guard let w = watchHeart, let c = cameraHeart else { return }
+        heart = (on && w.isAvailable) ? w : c
+    }
 
     // When the response-time clock started (set the moment the asker lets go).
     private var responseClockStart: Date?
@@ -111,20 +146,49 @@ final class GameViewModel {
         self.engine = engine
         #if targetEnvironment(simulator)
         self.heart = heart ?? MockHeartRate()
+        self.watchHeart = nil
+        self.cameraHeart = nil
         self.speech = speech ?? MockSpeech()
         self.structure = structure ?? MockStructure()
         #else
-        self.heart = heart ?? RealHeartRate()
+        // v1 ships iPhone-only: the watch app is not embedded, so nothing can be
+        // installed on a wrist and WatchHeartRate would only ask for HealthKit
+        // permission it never uses. Building it is what triggered that prompt at
+        // launch, so it is not built at all. Restore the two commented lines when
+        // the watch app is embedded again in v1.1 — everything downstream
+        // (setUseAppleWatch, the Settings row, the startup restore) already works.
+        let camera = heart ?? RealHeartRate()
+        // let watch = WatchHeartRate()
+        self.cameraHeart = camera
+        self.watchHeart = nil
+        self.heart = camera
+        // Restore the player's remembered choice from Settings. Falls back to the
+        // camera on its own if the watch went away since last launch. Dormant in
+        // v1 (watchHeart is nil), live again the moment the watch app returns.
+        if UserDefaults.standard.bool(forKey: "settings.useAppleWatch"),
+           let watch = watchHeart, watch.isAvailable {
+            self.heart = watch
+            useAppleWatch = true
+        }
+        #if DEBUG
+        if Self.debugForceAppleWatch, let watch = watchHeart {
+            self.heart = watch
+            useAppleWatch = true
+        }
+        #endif
         self.speech = speech ?? RealSpeechCapture()
-        // Real LLM only where Foundation Models exists + iOS 26; else mock.
+        // Real LLM only where Foundation Models exists, the OS is new enough AND
+        // Apple Intelligence is actually usable on this device. Anywhere else the
+        // verdict comes from VerdictLines — no mock on a real phone, or every
+        // round would show the same canned sentence.
         #if canImport(FoundationModels)
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), StructureAnalyzer.isAvailable {
             self.structure = structure ?? StructureAnalyzer()
         } else {
-            self.structure = structure ?? MockStructure()
+            self.structure = structure
         }
         #else
-        self.structure = structure ?? MockStructure()
+        self.structure = structure
         #endif
         #endif
         // Identity = device name + unique install id, so two "iPhone"s never
@@ -190,7 +254,20 @@ final class GameViewModel {
     // typing their name — so the lobby only shows players in this set, not
     // everyone connected. Announced via .inLobby (see enterLobby).
     var lobbyMembers: Set<String> = []
-    var lobbyPlayers: [String] { room.players.filter { lobbyMembers.contains($0) } }
+    // The lobby roster renders from lobbyMembers, NOT room.players (= self +
+    // MY connectedPeers). In the star topology a joiner isn't directly connected
+    // to other joiners, so room.players would drop them — the "3 in lobby, 2 in
+    // picking-roles" bug. lobbyMembers is authoritative on the host and fed to
+    // joiners via the host's .roster broadcast, so every device agrees.
+    var lobbyPlayers: [String] { lobbyMembers.sorted() }
+
+    // Host is the roster authority (it's connected to everyone). Whenever its
+    // lobby set changes, it broadcasts the full list so joiners — who can't see
+    // each other directly — render the same players.
+    private func broadcastRosterIfHost() {
+        guard room.isHost else { return }
+        room.send(.roster(Array(lobbyMembers)))
+    }
 
     func setMyAvatar(_ image: UIImage, colorIndex: Int = 0) {
         guard let data = image.jpegThumbnail(maxSide: 160, quality: 0.6) else { return }
@@ -204,7 +281,22 @@ final class GameViewModel {
     // - active asker/answerer left -> this round can't finish -> back to lobby.
     // - anyone else (spectator/lobby) -> keep going, just a toast.
     private func peerLeft(_ name: String) {
+        // Star topology: only the HOST is reliably connected to everyone, so only
+        // the host owns the roster + decides round teardown on a leave. A joiner's
+        // link to another joiner is flaky, so a joiner IGNORES peer drops — except
+        // losing the host itself, which really does close the room. This is what
+        // stops a dropped opportunistic link from falsely removing a player who's
+        // still in the room (the "3 -> 2 at picking-roles" bug).
+        if !room.isHost {
+            if state != .idle, everConnected, room.connectedPeers.isEmpty {
+                endRoom("The room closed — the host left.")
+            }
+            return
+        }
+
+        // --- Host path: authoritative. Host sees every real leave. ---
         lobbyMembers.remove(name)
+        broadcastRosterIfHost()   // push the shrunk roster to every joiner
         // If we're waiting at the reveal barrier, stop waiting on the leaver —
         // otherwise the host hangs until the 25s timeout.
         if state == .syncing {
@@ -220,12 +312,11 @@ final class GameViewModel {
         }
         // Ignore drops fired by our own leave — we're already heading to start.
         guard state != .idle else { return }
-        // Host left: as a joiner, we lose all peers.
-        if !room.isHost, everConnected, room.connectedPeers.isEmpty {
-            endRoom("The room closed — the host left.")
-            return
-        }
         let shown = label(for: name)
+        // ponytail: only the host tears the round down on an asker/answerer leave.
+        // A joiner mid-round can't detect another joiner leaving (no direct link),
+        // so it falls back to armResultTimeout(30s). Broadcast a teardown message
+        // if that 30s wait ever feels too long.
         if inRound, name == currentAsker || name == currentAnswerer {
             returnToLobby("\(shown) left — round ended.")
         } else {
@@ -243,6 +334,13 @@ final class GameViewModel {
             try? await Task.sleep(for: .seconds(3))
             if token == noticeToken { toast = nil }
         }
+    }
+
+    // Player tapped the mic instead of holding it — nudge them with the same
+    // toast component the lobby uses (warning style). The button itself does the
+    // buzz. Auto-clears via showLeftNotice.
+    func hintHoldToTalk(_ text: String) {
+        showLeftNotice(text, style: .warning)
     }
 
     // Manual dismiss (tap the X on the toast).
@@ -271,6 +369,7 @@ final class GameViewModel {
         lobbyMembers = []
         round = 0
         hasPlayedARound = false   // next session's first reveal = LET'S BEGIN again
+        isCalibrated = false      // room closed → next session calibrates from scratch
         waitToken += 1          // cancel any pending round timeout
         state = .idle
         // Auto-dismiss the home-screen notice after 3s so it doesn't linger.
@@ -308,9 +407,15 @@ final class GameViewModel {
         case let .question(text):
             // Only the answerer needs the question (for the LLM).
             if myRole == .answerer { setQuestion(text) }
+        case .calculating:
+            // Answerer finished — swap the asker's/spectators' waiting screen for
+            // the spinning meter. Its needle sweeps (lastResult still nil) until
+            // the .result message lands them on the verdict.
+            guard state == .waitingForResult || state == .spectating else { return }
+            state = .calculating
         case let .result(result):
             // Asker (waiting) + spectators show it; the answerer already has it.
-            guard state == .waitingForResult || state == .spectating else { return }
+            guard state == .waitingForResult || state == .spectating || state == .calculating else { return }
             lastResult = SusResult(score: result.score, band: SusBand(score: result.score), verdict: result.verdict)
             resultBPM = result.bpm
             resultTranscript = result.transcript
@@ -323,6 +428,12 @@ final class GameViewModel {
             displayNames[id] = display
         case let .inLobby(name):
             lobbyMembers.insert(name)
+            broadcastRosterIfHost()   // host: tell everyone the new full roster
+        case let .roster(names):
+            // Joiners adopt the host's authoritative roster wholesale (the host
+            // ignores its own echo — it already IS the source of truth).
+            guard !room.isHost else { return }
+            lobbyMembers = Set(names)
         case let .ready(name):
             // Host tallies readiness; fires the reveal once everyone's in.
             guard room.isHost else { return }
@@ -512,7 +623,7 @@ final class GameViewModel {
         let token = waitToken
         Task {
             try? await Task.sleep(for: .seconds(seconds))
-            if token == waitToken, state == .waitingForResult || state == .spectating {
+            if token == waitToken, state == .waitingForResult || state == .spectating || state == .calculating {
                 returnToLobby("No result came back — back to the lobby.")
             }
         }
@@ -594,6 +705,7 @@ final class GameViewModel {
         // Setup done — reveal my bubble on everyone's lobby (see lobbyMembers).
         lobbyMembers.insert(myName)
         room.send(.inLobby(name: myName))
+        broadcastRosterIfHost()   // host seeds the roster with itself
         state = .roomLobby
     }
 
@@ -767,6 +879,10 @@ final class GameViewModel {
         // sweeps (targetScore == nil) while transcribe + LLM run below, then
         // eases to the real score once lastResult is set.
         state = .calculating
+        // Tell the asker + spectators to leave their waiting screens and show
+        // the same spinning meter while we score — the reveal should look the
+        // same on every phone, not just the suspect's.
+        room.send(.calculating)
         let speechResult = await speech.stopAndTranscribe()
         // HR was captured live DURING the answer (started in beginAnswering);
         // this just stops the camera and reads the estimate — near instant.
@@ -777,22 +893,36 @@ final class GameViewModel {
         let transcript = speechResult.text.isEmpty ? nil : speechResult.text   // closed captions
         resultTranscript = transcript
 
-        // The LLM is the only step that can fail; fall back to neutral 0.5.
-        let structureResult: StructureResult
-        if speechResult.text.isEmpty {
-            structureResult = StructureResult(score: 0.5, verdict: "Couldn't hear you — say that again louder.")
-        } else {
-            structureResult = (try? await structure.analyze(question: currentQuestion, answer: speechResult.text))
-                ?? StructureResult(score: 0.5, verdict: "The judge shrugged.")
-        }
-
+        // Nothing transcribed (mic failed, permission denied, or they stayed
+        // silent) means the two speech signals are MISSING, not bad. Left raw,
+        // speechRate would be 0 — which the engine reads as a maximum deviation
+        // from baseline and scores as +0.2 sus, punishing a broken microphone
+        // while the screen says "couldn't hear you". Feeding the player's own
+        // baseline back makes that deviation zero, so the round is scored on
+        // heart rate and response time, both of which really were measured.
+        let heard = !speechResult.text.isEmpty
         let signals = Signals(heartRate: bpm,
                               responseTime: responseTime,
-                              speechRate: speechResult.speechRate,
+                              speechRate: heard ? speechResult.speechRate : baseline.speechRate,
+                              hesitation: heard ? speechResult.hesitation : 0,
                               answerText: speechResult.text)
 
-        var result = engine.score(signals: signals, baseline: baseline, structureScore: structureResult.score)
-        result.verdict = structureResult.verdict   // the LLM writes the funny line
+        // Sensors first. This score stands on its own and is what plays on an
+        // iPhone without Apple Intelligence.
+        let measured = engine.score(signals: signals, baseline: baseline)
+
+        // Then, only where the device can: let the LLM read what the answer
+        // MEANS and fold that in as a fifth signal. It is also allowed to fail —
+        // a nil here is not a penalty, it just leaves the measured score alone.
+        let structure = await readStructure(answer: speechResult.text,
+                                            measuredBand: measured.band,
+                                            bpm: recordedBPM,
+                                            hesitation: speechResult.hesitation)
+
+        var result = engine.score(signals: signals, baseline: baseline,
+                                  structureScore: structure?.score)
+        result.verdict = structure?.verdict ?? localVerdict(for: result.band,
+                                                            answer: speechResult.text)
         lastResult = result
         hasPlayedARound = true
 
@@ -804,6 +934,22 @@ final class GameViewModel {
         state = .result
 
         room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict, bpm: recordedBPM, transcript: transcript)))
+    }
+
+    // The LLM's reading of the answer, or nil — no Apple Intelligence on this
+    // iPhone, nothing transcribed, or the call failed. Every nil path ends in
+    // the same place: the measured score stands and VerdictLines writes the line.
+    private func readStructure(answer: String, measuredBand: SusBand,
+                               bpm: Int, hesitation: Double) async -> StructureResult? {
+        guard let structure, !answer.isEmpty else { return nil }
+        return try? await structure.analyze(question: currentQuestion, answer: answer,
+                                            measuredBand: measuredBand,
+                                            bpm: bpm, hesitation: hesitation)
+    }
+
+    // The funny line under the meter when the LLM did not write one.
+    private func localVerdict(for band: SusBand, answer: String) -> String {
+        answer.isEmpty ? VerdictLines.unheard : VerdictLines.random(for: band)
     }
 
     // Only the host (or a solo device) drives the pace. Non-host clients wait

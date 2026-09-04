@@ -16,16 +16,39 @@ import SwiftUI
 
 struct SettingsView: View {
     var onClose: () -> Void
+    // Optional so #Preview still works without a live game.
+    var vm: GameViewModel? = nil
 
     // Persisted settings. Other views can read the same @AppStorage keys.
     @AppStorage("settings.language")  private var language = "EN"       // "EN" / "ID"
     @AppStorage("settings.sfxVolume") private var sfxVolume  = 0.7
     @AppStorage("settings.bgmVolume") private var bgmVolume  = 0.6
     @AppStorage("settings.closedCaptions") private var closedCaptions = false
+    // Remembered across launches; GameViewModel reads the same key at startup so
+    // the choice applies before this drawer is ever opened.
+    @AppStorage("settings.useAppleWatch") private var useAppleWatch = false
 
     // Sliders write UserDefaults; poke the live players so it applies instantly.
 
     private let pink = Color(hex: "E40063")
+
+    // Apple Intelligence adds a fifth signal (what the answer MEANS) and writes
+    // the verdict. Without it the game is complete, scored on the four sensors.
+    private var llmNote: String? {
+        #if canImport(FoundationModels)
+        guard #available(iOS 26.0, *) else { return nil }
+        switch StructureAnalyzer.status {
+        case .offInSettings:
+            return String(localized: "Turn on Apple Intelligence in Settings — it reads what your answer means, on top of the sensors, and writes sharper verdicts.")
+        case .stillDownloading:
+            return String(localized: "Apple Intelligence is still downloading — answers get read for meaning once it finishes.")
+        case .available, .unsupported:
+            return nil
+        }
+        #else
+        return nil
+        #endif
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
@@ -55,6 +78,31 @@ struct SettingsView: View {
                 labelRow(icon: "captions.bubble.fill", title: "CLOSE\nCAPTIONS")
                 Spacer()
                 SussToggle(isOn: $closedCaptions)
+            }
+
+            // APPLE WATCH — hidden unless a watch with Sanscore installed is
+            // actually paired, since there is nothing to switch on otherwise.
+            // On: heart rate comes from the wrist DURING the answer instead of
+            // a fingertip on the camera afterwards.
+            if vm?.appleWatchAvailable == true {
+                HStack {
+                    labelRow(icon: "applewatch", title: "APPLE\nWATCH")
+                    Spacer()
+                    SussToggle(isOn: $useAppleWatch)
+                }
+                .onChange(of: useAppleWatch) { _, on in vm?.setUseAppleWatch(on) }
+            }
+
+            // Only shown when the player can actually DO something about it: a
+            // supported iPhone with Apple Intelligence switched off, or one still
+            // downloading the model. An unsupported iPhone is told nothing — the
+            // game scores identically either way, and the LLM only writes the
+            // funny line, so there is nothing to apologise for.
+            if let note = llmNote {
+                Text(note)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer()

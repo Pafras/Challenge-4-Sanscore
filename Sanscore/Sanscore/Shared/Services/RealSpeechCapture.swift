@@ -28,6 +28,18 @@ enum SpeechError: Error {
 
 final class RealSpeechCapture: SpeechCapturing {
 
+    // Answers are recognised in English, deliberately, whatever the UI language
+    // is set to — the settings toggle localizes the interface, not the game.
+    //
+    // What this costs: an answer spoken in Indonesian transcribes as nonsense, so
+    // the captions and the LLM's verdict line read as nonsense too. What it does
+    // NOT cost: the score. Every scoring signal (heart rate, response time, speech
+    // rate, hesitation) is timing or physiology, so it is blind to the language
+    // being spoken and stays fair either way.
+    //
+    // ponytail: one fixed locale. To follow the UI toggle later, read
+    // @AppStorage("settings.language") and map EN/ID -> en-US/id-ID, falling back
+    // to en-US whenever the chosen locale has no on-device recogniser.
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private let audioEngine = AVAudioEngine()
     private var request: SFSpeechAudioBufferRecognitionRequest?
@@ -129,7 +141,35 @@ final class RealSpeechCapture: SpeechCapturing {
         return SpeechResult(wordCount: t.segments.count,
                             duration: duration,
                             text: t.formattedString,
-                            responseTime: responseTime)
+                            responseTime: responseTime,
+                            hesitation: hesitation(in: t.segments, over: duration))
     }
+
+    // How much of the answer was spent stalling mid-sentence: "i was... uh...
+    // at home". Each segment carries its own start + length, so the silence
+    // between two words is just the gap between them. Sum the gaps that are
+    // long enough to read as hesitation rather than normal word spacing, and
+    // express that as a share of the answer.
+    //
+    // Why timing and not the words themselves: this works identically in
+    // English and Indonesian, needs no model, and runs on every iPhone —
+    // unlike the LLM, which only exists on Apple Intelligence devices.
+    //
+    // ponytail: pause share only. Speaking-rate variance (fluent then suddenly
+    // slow) is the obvious next signal if playtests want more sensitivity.
+    private func hesitation(in segments: [SFTranscriptionSegment], over duration: Double) -> Double {
+        guard segments.count > 1, duration > 0 else { return 0 }
+        var paused = 0.0
+        for (previous, current) in zip(segments, segments.dropFirst()) {
+            let gap = current.timestamp - (previous.timestamp + previous.duration)
+            if gap > Self.pauseThreshold { paused += gap }
+        }
+        return min(paused / duration / Self.fullySus, 1)
+    }
+
+    // A gap longer than this reads as a pause, not the normal space between
+    // words. Tune both of these from playtests before touching SusEngine.
+    private static let pauseThreshold = 0.35   // seconds
+    private static let fullySus = 0.35         // 35% of the answer spent paused = 1.0
 }
 #endif
