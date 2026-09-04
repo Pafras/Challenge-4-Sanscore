@@ -20,6 +20,14 @@ struct SusWeights {
     // all four signals, with or without Apple Intelligence.
     var hesitation: Double = 0.3
 
+    // The four measured weights above always sum to 1.0 — every iPhone can
+    // produce all four. This one is different: it is the SHARE the LLM takes
+    // when the device has Apple Intelligence, with the measured four scaled
+    // down to fit. On a phone without it the four keep the whole 1.0, so the
+    // score still uses the full range instead of being nudged by a fake middle
+    // value. One knob, and it can never make the weights stop summing to 1.
+    var structure: Double = 0.25
+
     var sum: Double { heartRate + responseTime + speechRate + hesitation }
 }
 
@@ -58,9 +66,12 @@ struct SusEngine {
         return min(max(amount - deadband, 0) / sensitivity, 1.0)
     }
 
-    // The whole fusion. Every signal is either measured against the player's own
-    // baseline or already 0-1 (hesitation), so no model is involved anywhere.
-    func score(signals: Signals, baseline: Baseline) -> SusResult {
+    // The whole fusion.
+    //
+    // `structureScore` is the LLM's reading of the answer's meaning, and is nil
+    // on every iPhone without Apple Intelligence. Passing nil is not a penalty:
+    // the four measured signals simply keep the full weight between them.
+    func score(signals: Signals, baseline: Baseline, structureScore: Double? = nil) -> SusResult {
         let h = normalize(signals.heartRate, baseline: baseline.heartRate, sensitivity: sensitivity.heartRate,
                           deviation: .aboveOnly, deadband: sensitivity.heartRateDeadband)
         let t = normalize(signals.responseTime, baseline: baseline.responseTime, sensitivity: sensitivity.responseTime,
@@ -68,10 +79,19 @@ struct SusEngine {
         let s = normalize(signals.speechRate, baseline: baseline.speechRate, sensitivity: sensitivity.speechRate)
         let p = clamp01(signals.hesitation)
 
-        let raw = weights.heartRate * h
-                + weights.responseTime * t
-                + weights.speechRate * s
-                + weights.hesitation * p
+        // The measured part is already a full 0-1 score on its own (the four
+        // weights sum to 1), which is what makes mixing in the LLM a one-liner.
+        let measured = weights.heartRate * h
+                     + weights.responseTime * t
+                     + weights.speechRate * s
+                     + weights.hesitation * p
+
+        let raw: Double
+        if let structureScore {
+            raw = measured * (1 - weights.structure) + weights.structure * clamp01(structureScore)
+        } else {
+            raw = measured
+        }
 
         let final = clamp01(raw)
         return SusResult(score: final, band: SusBand(score: final), verdict: "")

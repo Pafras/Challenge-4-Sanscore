@@ -34,10 +34,10 @@ struct MockSpeech: SpeechCapturing {
 }
 
 struct MockStructure: StructureAnalyzing {
-    var canned = "You answered a question with a question."
+    var canned = StructureResult(score: 0.7, verdict: "You answered a question with a question.")
     // ponytail: real Foundation Models call takes a beat too; see note above.
-    func verdictLine(question: String, answer: String,
-                     band: SusBand, bpm: Int, hesitation: Double) async throws -> String {
+    func analyze(question: String, answer: String,
+                 measuredBand: SusBand, bpm: Int, hesitation: Double) async throws -> StructureResult {
         try? await Task.sleep(for: .milliseconds(900))
         return canned
     }

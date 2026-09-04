@@ -60,15 +60,15 @@ protocol SpeechCapturing {
     var liveTranscript: String? { get }
 }
 
-// Writes the funny one-line verdict shown on the result screen, by reading the
-// question + answer with the on-device LLM. It no longer feeds the SCORE: only
-// some iPhones have Apple Intelligence, and a signal half the room cannot
-// produce would make the game unfair (see VerdictLines for the fallback).
+// Reads what the answer MEANS with the on-device LLM: a 0-1 structure score
+// that becomes a fifth signal, plus the funny verdict line. Only exists on
+// iPhones with Apple Intelligence — GameViewModel holds this as an optional and
+// scores without it everywhere else (see VerdictLines for the fallback line).
 // OWNER: Agung. See StructureAnalyzer.swift.
 protocol StructureAnalyzing {
-    /// `band`, `bpm` and `hesitation` are the ALREADY-scored result. They are
-    /// passed so the line agrees with the needle and can name something concrete
-    /// ("you paused for half the answer"), never so the model can re-score.
-    func verdictLine(question: String, answer: String,
-                     band: SusBand, bpm: Int, hesitation: Double) async throws -> String
+    /// `measuredBand`, `bpm` and `hesitation` describe what the SENSORS alone
+    /// concluded. They are context so the verdict can name something concrete
+    /// ("you paused for half the answer") and match the meter's direction.
+    func analyze(question: String, answer: String,
+                 measuredBand: SusBand, bpm: Int, hesitation: Double) async throws -> StructureResult
 }

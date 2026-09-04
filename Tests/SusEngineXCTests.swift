@@ -60,6 +60,26 @@ final class SusEngineXCTests: XCTestCase {
         XCTAssertEqual(engine.normalize(92, baseline: 0, sensitivity: 0.3), 0.0, accuracy: 0.001)
     }
 
+    // With Apple Intelligence the LLM takes a share (0.25) and the measured four
+    // are scaled to fit, so the total is still 1.0 — no phone gets a score that
+    // cannot reach the ends of the meter.
+    func testStructureShiftsScoreWhenAvailable() {
+        let honest = Signals(heartRate: 78, responseTime: 1.0, speechRate: 3.1, hesitation: 0.1, answerText: "yeah, i did")
+        let measured = engine.score(signals: honest, baseline: baseline)
+        let dodged = engine.score(signals: honest, baseline: baseline, structureScore: 1.0)
+        XCTAssertEqual(dodged.score, measured.score * 0.75 + 0.25, accuracy: 0.001)
+        XCTAssertGreaterThan(dodged.score, measured.score)
+    }
+
+    // An iPhone without Apple Intelligence must not be nudged toward the middle:
+    // passing nil leaves the measured score exactly as it was.
+    func testNoStructureLeavesMeasuredScoreUntouched() {
+        let honest = Signals(heartRate: 78, responseTime: 1.0, speechRate: 3.1, hesitation: 0.1, answerText: "yeah, i did")
+        XCTAssertEqual(engine.score(signals: honest, baseline: baseline, structureScore: nil).score,
+                       engine.score(signals: honest, baseline: baseline).score,
+                       accuracy: 0.001)
+    }
+
     func testWeightsSumToOne() {
         XCTAssertEqual(engine.weights.sum, 1.0, accuracy: 0.001)
     }

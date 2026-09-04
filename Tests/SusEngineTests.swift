@@ -53,6 +53,16 @@ func runSusEngineTests() {
     assert(approxEqual(engine.normalize(76, baseline: 72, sensitivity: 0.3, deviation: .aboveOnly, deadband: 0.08), 0.0),
            "camera jitter must not register as nerves")
 
+    // 2d) With Apple Intelligence the LLM takes a 0.25 share and the measured
+    //     four are scaled to fit; without it, nil must leave the score untouched
+    //     rather than nudging it toward the middle.
+    let withLLM = engine.score(signals: honest, baseline: baseline, structureScore: 1.0)
+    assert(approxEqual(withLLM.score, honestResult.score * 0.75 + 0.25, tol: 0.001),
+           "structure share should be 0.25, got \(withLLM.score) vs measured \(honestResult.score)")
+    assert(approxEqual(engine.score(signals: honest, baseline: baseline, structureScore: nil).score,
+                       honestResult.score),
+           "nil structure must equal the measured-only score")
+
     // 3) normalize() must clamp at 1.0 even for huge deviations.
     let huge = engine.normalize(1000, baseline: 72, sensitivity: 0.3)
     assert(approxEqual(huge, 1.0), "normalize should clamp to 1.0, got \(huge)")

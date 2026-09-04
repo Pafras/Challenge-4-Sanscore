@@ -32,15 +32,16 @@ struct SettingsView: View {
 
     private let pink = Color(hex: "E40063")
 
-    // Apple Intelligence powers the verdict line only — never the score.
+    // Apple Intelligence adds a fifth signal (what the answer MEANS) and writes
+    // the verdict. Without it the game is complete, scored on the four sensors.
     private var llmNote: String? {
         #if canImport(FoundationModels)
         guard #available(iOS 26.0, *) else { return nil }
         switch StructureAnalyzer.status {
         case .offInSettings:
-            return String(localized: "Turn on Apple Intelligence in Settings for sharper, funnier verdicts. Scores are unaffected.")
+            return String(localized: "Turn on Apple Intelligence in Settings — it reads what your answer means, on top of the sensors, and writes sharper verdicts.")
         case .stillDownloading:
-            return String(localized: "Apple Intelligence is still downloading — verdicts get funnier once it finishes.")
+            return String(localized: "Apple Intelligence is still downloading — answers get read for meaning once it finishes.")
         case .available, .unsupported:
             return nil
         }

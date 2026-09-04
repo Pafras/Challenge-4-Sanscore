@@ -893,19 +893,36 @@ final class GameViewModel {
         let transcript = speechResult.text.isEmpty ? nil : speechResult.text   // closed captions
         resultTranscript = transcript
 
+        // Nothing transcribed (mic failed, permission denied, or they stayed
+        // silent) means the two speech signals are MISSING, not bad. Left raw,
+        // speechRate would be 0 — which the engine reads as a maximum deviation
+        // from baseline and scores as +0.2 sus, punishing a broken microphone
+        // while the screen says "couldn't hear you". Feeding the player's own
+        // baseline back makes that deviation zero, so the round is scored on
+        // heart rate and response time, both of which really were measured.
+        let heard = !speechResult.text.isEmpty
         let signals = Signals(heartRate: bpm,
                               responseTime: responseTime,
-                              speechRate: speechResult.speechRate,
-                              hesitation: speechResult.hesitation,
+                              speechRate: heard ? speechResult.speechRate : baseline.speechRate,
+                              hesitation: heard ? speechResult.hesitation : 0,
                               answerText: speechResult.text)
 
-        // Score first, from measurements only — identical maths on every phone.
-        var result = engine.score(signals: signals, baseline: baseline)
-        // Then the line. The LLM writes it where it exists; otherwise a local
-        // line for the band the needle landed on. Either way it is only text,
-        // so a missing/failing LLM can no longer move anybody's score.
-        result.verdict = await verdict(for: result.band, answer: speechResult.text,
-                                       bpm: recordedBPM, hesitation: speechResult.hesitation)
+        // Sensors first. This score stands on its own and is what plays on an
+        // iPhone without Apple Intelligence.
+        let measured = engine.score(signals: signals, baseline: baseline)
+
+        // Then, only where the device can: let the LLM read what the answer
+        // MEANS and fold that in as a fifth signal. It is also allowed to fail —
+        // a nil here is not a penalty, it just leaves the measured score alone.
+        let structure = await readStructure(answer: speechResult.text,
+                                            measuredBand: measured.band,
+                                            bpm: recordedBPM,
+                                            hesitation: speechResult.hesitation)
+
+        var result = engine.score(signals: signals, baseline: baseline,
+                                  structureScore: structure?.score)
+        result.verdict = structure?.verdict ?? localVerdict(for: result.band,
+                                                            answer: speechResult.text)
         lastResult = result
         hasPlayedARound = true
 
@@ -919,18 +936,20 @@ final class GameViewModel {
         room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict, bpm: recordedBPM, transcript: transcript)))
     }
 
-    // The funny line under the meter. The LLM gets first refusal, but it is
-    // optional in both senses: absent on most iPhones, and allowed to fail.
-    private func verdict(for band: SusBand, answer: String,
-                         bpm: Int, hesitation: Double) async -> String {
-        guard !answer.isEmpty else { return VerdictLines.unheard }
-        if let structure,
-           let line = try? await structure.verdictLine(question: currentQuestion, answer: answer,
-                                                       band: band, bpm: bpm, hesitation: hesitation),
-           !line.isEmpty {
-            return line
-        }
-        return VerdictLines.random(for: band)
+    // The LLM's reading of the answer, or nil — no Apple Intelligence on this
+    // iPhone, nothing transcribed, or the call failed. Every nil path ends in
+    // the same place: the measured score stands and VerdictLines writes the line.
+    private func readStructure(answer: String, measuredBand: SusBand,
+                               bpm: Int, hesitation: Double) async -> StructureResult? {
+        guard let structure, !answer.isEmpty else { return nil }
+        return try? await structure.analyze(question: currentQuestion, answer: answer,
+                                            measuredBand: measuredBand,
+                                            bpm: bpm, hesitation: hesitation)
+    }
+
+    // The funny line under the meter when the LLM did not write one.
+    private func localVerdict(for band: SusBand, answer: String) -> String {
+        answer.isEmpty ? VerdictLines.unheard : VerdictLines.random(for: band)
     }
 
     // Only the host (or a solo device) drives the pace. Non-host clients wait

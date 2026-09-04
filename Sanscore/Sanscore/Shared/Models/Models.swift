@@ -24,6 +24,14 @@ struct Baseline {
     var speechRate: Double
 }
 
+// What the LLM returns after reading the answer text — on the iPhones that have
+// one. Both halves are optional extras: the score is folded into the fusion as a
+// fifth signal, the verdict replaces the local line.
+struct StructureResult {
+    var score: Double     // 0 = direct/honest structure, 1 = very evasive
+    var verdict: String   // one funny line to show on the result screen
+}
+
 // The final output the UI shows.
 struct SusResult {
     var score: Double     // 0.0 (truth) ... 1.0 (liar)
