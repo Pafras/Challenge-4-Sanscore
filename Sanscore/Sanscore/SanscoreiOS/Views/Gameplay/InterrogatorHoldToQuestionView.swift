@@ -40,14 +40,19 @@ struct InterrogatorHoldToQuestionView: View {
     // nil in #Preview, where the local WAITING phase drives the preview.
     private let onPress: (() -> Void)?
     private let onRelease: (() -> Void)?
+    // Tapped instead of held — GameFlowView wires this to a "press and hold"
+    // toast nudge (the button already buzzes).
+    private let onTap: (() -> Void)?
 
     /// `previewWaiting: true` opens straight in the WAITING phase (for #Preview).
     init(previewWaiting: Bool = false,
          onPress: (() -> Void)? = nil,
-         onRelease: (() -> Void)? = nil) {
+         onRelease: (() -> Void)? = nil,
+         onTap: (() -> Void)? = nil) {
         _phase = State(initialValue: previewWaiting ? .waiting : .asking)
         self.onPress = onPress
         self.onRelease = onRelease
+        self.onTap = onTap
     }
 
     var body: some View {
@@ -59,7 +64,7 @@ struct InterrogatorHoldToQuestionView: View {
 
             switch phase {
             case .asking:  askingContent
-            case .waiting: waitingContent
+            case .waiting: WaitingForAnswerView().transition(.opacity)
             }
         }
         .animation(.easeInOut, value: phase)
@@ -91,6 +96,15 @@ struct InterrogatorHoldToQuestionView: View {
                 .foregroundStyle(.white.opacity(0.85))
                 .padding(.top, 80)
 
+            // Speech is recognised in English only (see RealSpeechCapture), so
+            // say so rather than letting people wonder why the transcript is
+            // gibberish. It does not affect anyone's score either way.
+            Text("Ask in English.")
+                .sussFont(.callout)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.white.opacity(0.7))
+                .padding(.top, 10)
+
             Spacer()
 
             MicHoldButton(
@@ -98,7 +112,8 @@ struct InterrogatorHoldToQuestionView: View {
                 barCount: barCount,
                 isEnabled: true,
                 isHolding: $isHolding,
-                pressedColors: [Color(hex: "01E0FF"), Color(hex: "002AF3")]
+                pressedColors: [Color(hex: "01E0FF"), Color(hex: "002AF3")],
+                onTap: onTap
             )
             .offset(y: -40)
 
@@ -108,18 +123,32 @@ struct InterrogatorHoldToQuestionView: View {
         .transition(.opacity)
     }
 
-    // MARK: - WAITING
+}
 
-    private var waitingContent: some View {
-        VStack(spacing: 16) {
-            Text("Waiting for Answer")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+// MARK: - Waiting for Answer (the asker's .waitingForResult screen)
 
-            WaveformBars(barCount: 5)
-                .frame(width: 80, height: 34)
+// The interrogator's screen AFTER releasing the question, while the suspect
+// answers. Blue-bg + "Waiting for Answer" + a live waveform (Agung's Figma).
+// Module-internal so GameFlowView renders it for `.waitingForResult` — this is
+// what replaced the old plain WaitingForResultView spinner. Self-contained so it
+// carries its own background.
+struct WaitingForAnswerView: View {
+    var body: some View {
+        ZStack {
+            Image("blue-bg")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                Text("Waiting for Answer")
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                WaveformBars(barCount: 5)
+                    .frame(width: 80, height: 34)
+            }
         }
-        .transition(.opacity)
     }
 }
 

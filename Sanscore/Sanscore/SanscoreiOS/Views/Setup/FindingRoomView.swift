@@ -14,6 +14,14 @@ struct FindingRoomView: View {
     let vm: GameViewModel
     let dismissAll: () -> Void
 
+    // The search never fails on its own: MultipeerConnectivity just keeps
+    // looking. Without this the player stares at spinning bars forever whether
+    // the host is on another Wi-Fi, in another room, or simply has not created
+    // one yet — and identically if they denied the Local Network prompt, which
+    // iOS gives us no way to query. So after a while, say what to check.
+    @State private var showHint = false
+    private let hintDelay: Duration = .seconds(8)
+
     var body: some View {
         ZStack {
             Image("pink-bg")
@@ -31,8 +39,37 @@ struct FindingRoomView: View {
                 LoadingBarsView()
                     .padding(.top, 16)
 
+                if showHint {
+                    VStack(spacing: 14) {
+                        Text("No rooms yet. Make sure you're in the same room, Wi-Fi and Bluetooth are on, and Sanscore is allowed to find devices on your local network in Settings.")
+                            .font(.system(size: 15, weight: .semibold))
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 36)
+
+                        Button("Search again") {
+                            showHint = false
+                            vm.startBrowsing()
+                        }
+                        .font(.system(size: 16, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 10)
+                        .glassButton()
+                    }
+                    .padding(.top, 28)
+                    .transition(.opacity)
+                }
+
                 Spacer()
             }
+        }
+        .animation(.easeInOut, value: showHint)
+        // Restarts with the view, and again on every "Search again".
+        .task(id: showHint) {
+            guard !showHint else { return }
+            try? await Task.sleep(for: hintDelay)
+            showHint = true
         }
         .navigationBarBackButtonHidden(true)
         // Back button — design-system action button, identical to JoinRoomView's.

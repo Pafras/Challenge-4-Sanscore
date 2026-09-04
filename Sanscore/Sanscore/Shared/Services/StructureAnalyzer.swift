@@ -1,7 +1,13 @@
 // StructureAnalyzer.swift
 // The real LLM module (Apple Foundation Models, on-device, iOS 26+).
-// Reads the answer TEXT and judges its structure: evasive? vague? dodgy?
-// Returns a 0-1 score + a funny verdict line.
+// Reads the answer TEXT and writes the funny verdict line for the result screen.
+//
+// It is an EXTRA, never a requirement. Foundation Models needs Apple
+// Intelligence, which only exists on iPhone 15 Pro and newer, so the four
+// measured signals (heart rate, response time, speech rate, hesitation) carry
+// the score on their own and every iPhone can play a complete game. Where this
+// class does run, it adds a fifth reading — what the answer MEANS, which timing
+// can never see — and writes a sharper verdict line than the local table.
 //
 // OWNER: Agung. This is your file. The skeleton + TODOs are below.
 // It is wrapped in #if canImport so the rest of the project still compiles
@@ -10,8 +16,10 @@
 #if canImport(FoundationModels)
 import FoundationModels
 
-// TODO(agung): add the fields you want the model to score.
-// Each @Guide line tells the model what that number means. Keep them 0-1.
+// The four dimensions the model scores. They are fused into one 0-1 structure
+// score AND make the verdict sharper — judging before writing beats asking for
+// a joke straight away. Each @Guide line tells the model what that number
+// means. Keep them 0-1.
 @Generable
 struct AnswerStructure {
     @Guide(description: "0 = answers directly, 1 = totally dodges the question")
@@ -20,12 +28,15 @@ struct AnswerStructure {
     @Guide(description: "0 = clear and specific, 1 = vague or rambling")
     var vagueness: Double
 
-    @Guide(description: "0 = totally confident, 1 = totally timid, shy, or unsure")
-    var timidity: Double
+    @Guide(description: "0 = says just enough, 1 = over-explains, piles on unrequested detail or alibi")
+    var overExplaining: Double
     
     @Guide(description: "0 = answers make sense, 1 = inconsistent answers, many self-correction")
     var incoherence: Double
     
+    @Guide(description: "the single most notable thing about HOW they answered, as a short phrase, e.g. 'answered a question with a question' or 'gave a suspiciously exact time'")
+    var tell: String
+
     @Guide(description: "one short, funny, playful verdict line for a party game")
     var verdict: String
     
@@ -35,26 +46,78 @@ struct AnswerStructure {
 @available(iOS 26.0, *)
 struct StructureAnalyzer: StructureAnalyzing {
 
-    func analyze(question: String, answer: String) async throws -> StructureResult {
+    /// False on every iPhone without Apple Intelligence, when the user has it
+    /// switched off, or while the model is still downloading. Checked once at
+    /// startup so we never build a session that is only going to throw.
+    static var isAvailable: Bool {
+        if case .available = SystemLanguageModel.default.availability { return true }
+        return false
+    }
+
+    /// Why the LLM is missing, in the only terms worth showing a player: is this
+    /// something they can fix, or not? An unsupported iPhone gets told nothing —
+    /// there is nothing they could do about it, and the game plays fine anyway.
+    enum Status { case available, offInSettings, stillDownloading, unsupported }
+
+    // At or below `honestFloor` the model's raw badness means "normal honest
+    // answer" (0); honestFloor + susSpan means "maxed out sus" (1). Tune these
+    // from playtests before touching the weights — they move the whole
+    // distribution at once.
+    private static let honestFloor = 0.35
+    private static let susSpan = 0.45
+
+    static var status: Status {
+        switch SystemLanguageModel.default.availability {
+        case .available: return .available
+        case .unavailable(.appleIntelligenceNotEnabled): return .offInSettings
+        case .unavailable(.modelNotReady): return .stillDownloading
+        case .unavailable: return .unsupported
+        }
+    }
+
+    func analyze(question: String, answer: String,
+                 measuredBand: SusBand, bpm: Int, hesitation: Double) async throws -> StructureResult {
         // TODO(agung): tune this persona + prompt. Playtest the wording.
         let session = LanguageModelSession(instructions: """
             You are a playful party-game lie detector. You judge only the STRUCTURE
             of an answer (is it evasive, vague, confident, coherent), never whether it is factually
             true. Be fun, not mean. Stay consistent.
+
+            Most answers in this game are honest, casual and SHORT. A short, plain,
+            direct answer is neither evasive nor vague — score it near 0. Being shy,
+            quiet or softly spoken is not lying. Only score above 0.6 when the person
+            genuinely dodges the question, contradicts themselves, or rambles without
+            ever answering it. Use the full 0-1 range; do not park everything in the middle.
             """)
 
+        // The measured facts are given to the model as MATERIAL for the line, not
+        // as things to score — the numbers were already fused by SusEngine.
         let prompt = """
             Question asked: "\(question)"
             Person answered: "\(answer)"
-            Judge the structure of the answer.
+
+            The measurements alone point to: \(measuredBand.label.uppercased())
+            Their heart rate was \(bpm) BPM.
+            They spent \(Int(hesitation * 100))% of the answer pausing mid-sentence.
+
+            Judge the structure of the answer, then write one line that fits the meter.
             """
 
         let out = try await session.respond(to: prompt, generating: AnswerStructure.self)
         let s = out.content
 
-        // TODO(agung): decide how to combine the fields into one 0-1 score.
-        // First guess: weight evasiveness more than vagueness.
-        let score = min(max(0.25 * s.evasiveness + 0.25 * s.vagueness + 0.25 * s.timidity + 0.25 * s.incoherence, 0), 1)
+        // Dodging the question is the strongest tell; over-explaining counts as
+        // much as vagueness (piling on unrequested alibi is its own giveaway).
+        let raw = 0.35 * s.evasiveness
+                + 0.25 * s.vagueness
+                + 0.25 * s.incoherence
+                + 0.15 * s.overExplaining
+
+        // Recentre. All four fields are one-directional "badness" and a language
+        // model almost never answers 0 — an honest, casual answer still comes back
+        // around 0.4. Raw, that put a permanent floor under every score and made
+        // everyone read as a liar. So: drop the floor, stretch what is left.
+        let score = min(max((raw - Self.honestFloor) / Self.susSpan, 0), 1)
         return StructureResult(score: score, verdict: s.verdict)
     }
 }

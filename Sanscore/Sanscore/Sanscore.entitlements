@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Empty on purpose for the v1 iPhone-only release.
+	     com.apple.developer.healthkit belongs here ONLY while the watch app
+	     ships inside this build: the entitlement exists so the phone can launch
+	     the watch's workout session. With the watch un-embedded there is no
+	     HealthKit feature to back it up, and an entitlement without a feature is
+	     a review rejection. Restore it together with the Embed Watch Content
+	     phase when the watch app returns in v1.1. -->
+</dict>
+</plist>

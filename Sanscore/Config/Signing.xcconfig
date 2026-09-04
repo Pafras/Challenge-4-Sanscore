@@ -6,11 +6,16 @@
 // For your own LOCAL device builds, override them in Local.xcconfig (this
 // folder, git-ignored) so you don't need this team's cert:
 //   1. Copy  Local.example.xcconfig  ->  Local.xcconfig
-//   2. Fill in your DEVELOPMENT_TEAM and PRODUCT_BUNDLE_IDENTIFIER
+//   2. Fill in your DEVELOPMENT_TEAM and SANSCORE_BUNDLE_ID
 // Local.xcconfig is optionally included below and overrides these defaults.
 // Never set signing in Xcode's UI (it writes to project.pbxproj -> churn).
 
-PRODUCT_BUNDLE_IDENTIFIER = com.pafrasvio.Sanscore
+// SANSCORE_BUNDLE_ID is the ONE source of truth for the app id. The iOS app uses
+// it directly; the watch app derives its id (".watchkitapp") and its companion
+// id (WKCompanionAppBundleIdentifier) from it — see project.pbxproj. Override it
+// per-dev in Local.xcconfig and everything follows.
+SANSCORE_BUNDLE_ID = com.pafrasvio.Sanscore
+PRODUCT_BUNDLE_IDENTIFIER = $(SANSCORE_BUNDLE_ID)
 DEVELOPMENT_TEAM = GDPL2X32L7
 
 #include? "Local.xcconfig"

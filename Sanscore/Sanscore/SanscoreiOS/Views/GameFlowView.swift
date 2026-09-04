@@ -94,7 +94,8 @@ struct GameFlowView: View {
                 // Interrogator's hold-to-question mic (Agung's Figma screen).
                 // Ask for mic/speech HERE (first screen that talks), not at app open.
                 InterrogatorHoldToQuestionView(onPress: { vm.askerPressed() },
-                                               onRelease: { vm.askerReleased() })
+                                               onRelease: { vm.askerReleased() },
+                                               onTap: { vm.hintHoldToTalk("Press and hold to ask") })
                     .task { _ = await RealSpeechCapture.requestPermission() }
             case .fingerCheck:
                 // "PUT FINGER ON CAMERA PLZZZ" — live camera bg (torch on), so
@@ -107,7 +108,8 @@ struct GameFlowView: View {
                 // once the asker has released.
                 SuspectHoldToAnswerView(bpm: vm.liveBPM,
                                         onPress: { vm.answererPressed() },
-                                        onRelease: { vm.answererReleased() })
+                                        onRelease: { vm.answererReleased() },
+                                        onTap: { vm.hintHoldToTalk("Press and hold to answer") })
                     // Answerer may skip .asking (solo asker is another device),
                     // so request mic/speech here too — no-op if already granted.
                     .task { _ = await RealSpeechCapture.requestPermission() }
@@ -126,7 +128,11 @@ struct GameFlowView: View {
                     #endif
                 }
             case .waitingForResult:
-                WaitingForResultView { vm.backToStart() }
+                // Agung's styled "Waiting for Answer" screen (blue bg + waveform),
+                // NOT the old plain spinner. The asker auto-advances to
+                // .calculating when the answerer finishes; armResultTimeout(30s)
+                // recovers if no result ever lands, so no manual Back button here.
+                WaitingForAnswerView()
             case .loading:
                 LoadingView()
             case .calculating:
@@ -215,7 +221,13 @@ struct GameFlowView: View {
         if let toast = vm.toast {
             SusToastView(toast: toast) { vm.dismissToast() }
                 .padding(.horizontal, 20)
-                .padding(.top, 8)
+                // Screens are full-bleed (bg art ignores the safe area), so the
+                // toast anchors at the physical top — 8pt tucked it under the
+                // Dynamic Island. Clear the island so it's fully visible.
+                // ponytail: fixed 60pt = iPhone 17 top inset (~59). If a
+                // notchless device is ever targeted, read the real safe-area
+                // inset instead.
+                .padding(.top, 60)
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(100)
         }

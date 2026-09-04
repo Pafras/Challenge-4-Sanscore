@@ -11,6 +11,7 @@ struct Signals {
     var heartRate: Double      // beats per minute, e.g. 92
     var responseTime: Double   // seconds from "done asking" to first word, e.g. 4.1
     var speechRate: Double     // words per second, e.g. 1.6
+    var hesitation: Double     // 0-1, share of the answer spent pausing mid-sentence
     var answerText: String     // what SFSpeechRecognizer transcribed
 }
 
@@ -23,7 +24,9 @@ struct Baseline {
     var speechRate: Double
 }
 
-// What the LLM (Foundation Models) returns after reading the answer text.
+// What the LLM returns after reading the answer text — on the iPhones that have
+// one. Both halves are optional extras: the score is folded into the fusion as a
+// fifth signal, the verdict replaces the local line.
 struct StructureResult {
     var score: Double     // 0 = direct/honest structure, 1 = very evasive
     var verdict: String   // one funny line to show on the result screen
@@ -124,6 +127,7 @@ struct RoundResult: Codable {
 enum RoomMessage: Codable {
     case turn(asker: String, answerer: String)   // host -> all, each round
     case question(String)                        // asker -> answerer
+    case calculating                             // answerer -> all: answer done, meter spinning
     case result(RoundResult)                     // answerer -> all
     case profile(name: String, image: Data, colorIndex: Int)   // any -> all: avatar + chosen colour
     case rename(id: String, display: String)     // any -> all: chosen display name
@@ -131,6 +135,7 @@ enum RoomMessage: Codable {
     case joinRejected                            // host -> joiner: wrong code, leave
     case roomInfo(title: String)                 // host -> joiner: room title (host's name)
     case inLobby(name: String)                   // any -> all: finished profile setup, show my bubble
+    case roster([String])                        // host -> all: authoritative lobby member list
     case ready(name: String)                     // any -> host: done calibrating, ready to reveal
     case beginReveal                             // host -> all: everyone ready, start the reveal NOW
     case readyNext(name: String)                 // any -> all: tapped READY on the result screen

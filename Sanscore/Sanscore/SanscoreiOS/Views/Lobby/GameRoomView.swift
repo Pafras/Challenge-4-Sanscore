@@ -76,7 +76,7 @@ struct RoomLobbyView: View {
                         IdentityTitle(text: String(localized: "START"), size: 26, strokeWidth: 4, tilt: 0)
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.sussDark)          // dark radial glass, per Figma
+                    .buttonStyle(SussButtonStyle(glisten: true, dark: true))  // dark glass + glisten beam
                     .padding(.horizontal, 16)
                     .padding(.bottom, 8)
                 } else {

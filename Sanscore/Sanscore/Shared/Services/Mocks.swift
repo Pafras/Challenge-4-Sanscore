@@ -23,7 +23,7 @@ struct MockHeartRate: HeartRateSource {
 }
 
 struct MockSpeech: SpeechCapturing {
-    var result = SpeechResult(wordCount: 7, duration: 4.4, text: "i was at home the whole night", responseTime: 4.1)
+    var result = SpeechResult(wordCount: 7, duration: 4.4, text: "i was at home the whole night", responseTime: 4.1, hesitation: 0.6)
     var liveTranscript: String? { result.text }   // so captions show while answering in the Simulator
     func startListening() throws {}
     // ponytail: real SFSpeechRecognizer takes a beat to finalize too; see note above.
@@ -36,7 +36,8 @@ struct MockSpeech: SpeechCapturing {
 struct MockStructure: StructureAnalyzing {
     var canned = StructureResult(score: 0.7, verdict: "You answered a question with a question.")
     // ponytail: real Foundation Models call takes a beat too; see note above.
-    func analyze(question: String, answer: String) async throws -> StructureResult {
+    func analyze(question: String, answer: String,
+                 measuredBand: SusBand, bpm: Int, hesitation: Double) async throws -> StructureResult {
         try? await Task.sleep(for: .milliseconds(900))
         return canned
     }
