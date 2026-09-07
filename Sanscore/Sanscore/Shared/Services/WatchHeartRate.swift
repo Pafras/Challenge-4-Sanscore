@@ -14,7 +14,8 @@
 //  OWNER: Pafras. iOS-only. The watch half is WatchConnector.swift.
 //
 //  ponytail: last-value BPM (real HR is already smooth ~1Hz, no smoothing needed
-//  like the camera did). Neutral 75 fallback if no watch samples arrived.
+//  like the camera did). nil if no watch samples arrived — the engine then drops
+//  the heart-rate signal instead of scoring a stand-in number.
 
 #if os(iOS)
 import Foundation
@@ -51,7 +52,7 @@ final class WatchHeartRate: NSObject, HeartRateSource, WCSessionDelegate {
     }
 
     // Non-live path (protocol requirement): run a full capture, return BPM.
-    func currentBPM() async -> Double {
+    func currentBPM() async -> Double? {
         await startLiveCapture()
         try? await Task.sleep(nanoseconds: 8_000_000_000)   // ~8 beats of signal
         return await finishLiveCapture()
@@ -76,9 +77,9 @@ final class WatchHeartRate: NSObject, HeartRateSource, WCSessionDelegate {
 
     func liveBPM() -> Double? { readLatest() }
 
-    func finishLiveCapture() async -> Double {
+    func finishLiveCapture() async -> Double? {
         send(["cmd": "stop"])
-        return readLatest() ?? 75   // no watch / unreachable → same neutral as RealHeartRate
+        return readLatest()   // nil = no watch samples arrived; the engine drops the signal
     }
 
     // startWatchApp(with:) is completion-based (no async overload) — bridge it.

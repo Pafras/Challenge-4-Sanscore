@@ -40,6 +40,12 @@ struct SuspectHoldToAnswerView: View {
     //     SuspectHoldToAnswerView(isEnabled: vm.canAnswer)
     var isEnabled: Bool = true
 
+    // ── RETAKE NOTICE (wire point) ────────────────────────────────────────
+    // Set when the previous take captured nothing (no words, no pulse) and the
+    // player is answering again. Replaces the subtitle so the reason is on the
+    // screen where they have to act on it. nil = normal round.
+    var retakeNotice: String? = nil
+
     // ── PUSH-TO-TALK (wire point) ─────────────────────────────────────────
     // Fired when the suspect presses / releases the mic. Wired in GameFlowView
     // to vm.answererPressed() (stop response clock + start capture) and
@@ -88,8 +94,9 @@ struct SuspectHoldToAnswerView: View {
                     .padding(.top, 24)
                     .offset(y: 60)
 
-                // Subtitle on every state (design shows it always).
-                Text("The button will be active after\ninvestigator done asking.")
+                // Subtitle on every state (design shows it always) — or the
+                // reason the last take is being redone.
+                Text(retakeNotice ?? "The button will be active after\ninvestigator done asking.")
                     .sussFont(.body2)          // design system: Body 2 (18 semibold)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white.opacity(0.85))

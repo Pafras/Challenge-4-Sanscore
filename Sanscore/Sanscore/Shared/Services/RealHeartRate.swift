@@ -47,16 +47,18 @@ final class RealHeartRate: NSObject, HeartRateSource, AVCaptureVideoDataOutputSa
     // the full window). Reset at the start of each capture.
     private var smoothedBPM: Double?
 
-    // Runs a full ~12s capture, then returns the estimated BPM. Falls back to a
-    // neutral 75 if the finger wasn't on the lens (too few / flat samples).
-    func currentBPM() async -> Double {
+    // Runs a full ~12s capture, then returns the estimated BPM — or nil when the
+    // finger wasn't on the lens (too few / flat samples). It used to answer a
+    // neutral 75, which the engine could not tell apart from a genuinely calm
+    // pulse, so a missed reading scored as truthful.
+    func currentBPM() async -> Double? {
         guard await configureAndStart() else {
             print("❤️‍🩹 HR: camera failed to start (configureAndStart false)")
-            return 75
+            return nil
         }
         try? await Task.sleep(nanoseconds: UInt64(sampleWindow * 1_000_000_000))
         stop()
-        return estimateBPM(samplesSnapshot()) ?? 75
+        return estimateBPM(samplesSnapshot())
     }
 
     // MARK: - Live capture (during the answer)
@@ -89,9 +91,9 @@ final class RealHeartRate: NSObject, HeartRateSource, AVCaptureVideoDataOutputSa
         return smoothedBPM
     }
 
-    func finishLiveCapture() async -> Double {
+    func finishLiveCapture() async -> Double? {
         stop()
-        return estimateBPM(samplesSnapshot()) ?? 75
+        return estimateBPM(samplesSnapshot())
     }
 
     // Lock-guarded copy — safe to call from any thread (incl. the MainActor

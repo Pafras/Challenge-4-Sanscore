@@ -20,10 +20,10 @@ func approxEqual(_ a: Double, _ b: Double, tol: Double = 0.001) -> Bool { abs(a 
 
 func runSusEngineTests() {
     let engine = SusEngine()
-    let baseline = Baseline(heartRate: 72, responseTime: 2.0, speechRate: 3.0)
+    let baseline = Baseline(heartRate: 72, responseTime: 0.8, speechRate: 3.0)
 
     // 1) A perfectly calm, direct answer should score near 0 (Truth).
-    let calm = Signals(heartRate: 72, responseTime: 2.0, speechRate: 3.0, hesitation: 0.0, answerText: "yes")
+    let calm = Signals(heartRate: 72, responseTime: 0.8, speechRate: 3.0, hesitation: 0.0, answerText: "yes")
     let calmResult = engine.score(signals: calm, baseline: baseline)
     assert(approxEqual(calmResult.score, 0.0), "calm answer should be ~0, got \(calmResult.score)")
     assert(calmResult.band == .veryTruth, "calm answer should land in Very Truth band")
@@ -33,10 +33,10 @@ func runSusEngineTests() {
     //    time 4.1 (base 2.0, sens 1.0, above-only) -> dev 1.05 -> clamp 1.0
     //    rate 1.6 (base 3.0, sens 0.5) -> dev 0.467/0.5 = 0.933
     //    hesitation 0.9 (long stalls mid-answer), already 0-1
-    //    score = 0.3*0.660 + 0.2*1.0 + 0.2*0.933 + 0.3*0.9 = 0.854
+    //    score = 0.3*0.660 + 0.2*1.0 + 0.2*0.933 + 0.3*0.9 = 0.970
     let sus = Signals(heartRate: 92, responseTime: 4.1, speechRate: 1.6, hesitation: 0.9, answerText: "uh i was home")
     let susResult = engine.score(signals: sus, baseline: baseline)
-    assert(approxEqual(susResult.score, 0.854, tol: 0.005), "worked example expected ~0.854, got \(susResult.score)")
+    assert(approxEqual(susResult.score, 0.970, tol: 0.005), "worked example expected ~0.970, got \(susResult.score)")
     assert(susResult.band == .verySus, "worked example should land in Very Sus band, got \(susResult.band.label)")
 
     // 2b) The bug this tuning fixed: an ordinary honest player (heart rate a few
@@ -62,6 +62,24 @@ func runSusEngineTests() {
     assert(approxEqual(engine.score(signals: honest, baseline: baseline, structureScore: nil).score,
                        honestResult.score),
            "nil structure must equal the measured-only score")
+
+    // 2e) The bug the rework fixed: a missed pulse used to arrive as a neutral
+    //     75 and an unheard answer as speechRate 0, so a round that measured
+    //     NOTHING still scored, and scored as truthful. Missing signals are now
+    //     dropped and their weight shared among the ones that did arrive.
+    let slowOnly = Signals(heartRate: nil, responseTime: 2.4, speechRate: nil,
+                           hesitation: nil, answerText: "uh")
+    let slowOnlyResult = engine.score(signals: slowOnly, baseline: baseline)
+    assert(approxEqual(slowOnlyResult.score, 1.0),
+           "response time alone should carry the score, got \(slowOnlyResult.score)")
+    assert(slowOnlyResult.band == .verySus, "a slow answer with no other signal is still sus")
+
+    let noHR = engine.score(signals: Signals(heartRate: nil, responseTime: 2.4, speechRate: 3.0,
+                                             hesitation: 0, answerText: "uh"), baseline: baseline).score
+    let calmHR = engine.score(signals: Signals(heartRate: 72, responseTime: 2.4, speechRate: 3.0,
+                                               hesitation: 0, answerText: "uh"), baseline: baseline).score
+    assert(noHR > calmHR, "dropping a signal must not be cheaper than measuring a calm one")
+    assert(approxEqual(noHR, 0.2 / 0.7), "weights should renormalise over what arrived, got \(noHR)")
 
     // 3) normalize() must clamp at 1.0 even for huge deviations.
     let huge = engine.normalize(1000, baseline: 72, sensitivity: 0.3)

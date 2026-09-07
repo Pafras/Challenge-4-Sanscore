@@ -76,7 +76,7 @@ struct StructureAnalyzer: StructureAnalyzing {
     }
 
     func analyze(question: String, answer: String,
-                 measuredBand: SusBand, bpm: Int, hesitation: Double) async throws -> StructureResult {
+                 measuredBand: SusBand, bpm: Int?, hesitation: Double) async throws -> StructureResult {
         // TODO(agung): tune this persona + prompt. Playtest the wording.
         let session = LanguageModelSession(instructions: """
             You are a playful party-game lie detector. You judge only the STRUCTURE
@@ -97,7 +97,7 @@ struct StructureAnalyzer: StructureAnalyzing {
             Person answered: "\(answer)"
 
             The measurements alone point to: \(measuredBand.label.uppercased())
-            Their heart rate was \(bpm) BPM.
+            \(bpm.map { "Their heart rate was \($0) BPM." } ?? "Their heart rate could not be read this round.")
             They spent \(Int(hesitation * 100))% of the answer pausing mid-sentence.
 
             Judge the structure of the answer, then write one line that fits the meter.
