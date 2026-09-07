@@ -7,11 +7,16 @@ import Foundation
 
 // The raw signals captured during one answer, in their natural units.
 // These are NOT yet 0-1. SusEngine normalizes them.
+// nil means NOT MEASURED, which is different from measured-as-zero. The camera
+// misses the pulse whenever a fingertip drifts off the lens, and the mic hears
+// nothing if the player never really spoke — scoring those as 0 quietly dragged
+// every round toward "truth". SusEngine drops a nil signal and shares its weight
+// out among the ones that did arrive.
 struct Signals {
-    var heartRate: Double      // beats per minute, e.g. 92
+    var heartRate: Double?     // beats per minute, e.g. 92. nil = camera never found a pulse
     var responseTime: Double   // seconds from "done asking" to first word, e.g. 4.1
-    var speechRate: Double     // words per second, e.g. 1.6
-    var hesitation: Double     // 0-1, share of the answer spent pausing mid-sentence
+    var speechRate: Double?    // words per second, e.g. 1.6. nil = nothing transcribed
+    var hesitation: Double?    // 0-1, share of the answer spent pausing mid-sentence
     var answerText: String     // what SFSpeechRecognizer transcribed
 }
 

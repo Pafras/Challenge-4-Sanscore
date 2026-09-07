@@ -10,7 +10,10 @@ import Foundation
 // Same protocol, so both drop in without touching the ViewModel.
 // OWNER: Pafras (camera PPG + Watch are async/hardware = lead's job).
 protocol HeartRateSource {
-    func currentBPM() async -> Double
+    /// nil when no pulse could be read at all — a fingertip off the lens, a
+    /// camera that never started. Reporting a stand-in number instead made every
+    /// such round score as a calm, truthful one.
+    func currentBPM() async -> Double?
 
     // Live capture: camera runs WHILE the player answers (finger on lens the
     // whole time), so HR is measured during the stress, not 8s after it.
@@ -20,7 +23,7 @@ protocol HeartRateSource {
     //   finishLiveCapture() -> stop + final BPM for scoring
     func startLiveCapture() async
     func liveBPM() -> Double?
-    func finishLiveCapture() async -> Double
+    func finishLiveCapture() async -> Double?
 }
 
 // Defaults so a source without live support (e.g. a future Watch source)
@@ -28,7 +31,7 @@ protocol HeartRateSource {
 extension HeartRateSource {
     func startLiveCapture() async {}
     func liveBPM() -> Double? { nil }
-    func finishLiveCapture() async -> Double { await currentBPM() }
+    func finishLiveCapture() async -> Double? { await currentBPM() }
 }
 
 // What one speech capture produces. rate is computed, not stored.
@@ -67,8 +70,8 @@ protocol SpeechCapturing {
 // OWNER: Agung. See StructureAnalyzer.swift.
 protocol StructureAnalyzing {
     /// `measuredBand`, `bpm` and `hesitation` describe what the SENSORS alone
-    /// concluded. They are context so the verdict can name something concrete
+    /// concluded; `bpm` is nil when the camera never found a pulse. They are context so the verdict can name something concrete
     /// ("you paused for half the answer") and match the meter's direction.
     func analyze(question: String, answer: String,
-                 measuredBand: SusBand, bpm: Int, hesitation: Double) async throws -> StructureResult
+                 measuredBand: SusBand, bpm: Int?, hesitation: Double) async throws -> StructureResult
 }

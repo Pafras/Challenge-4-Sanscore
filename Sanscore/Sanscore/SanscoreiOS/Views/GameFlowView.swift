@@ -107,6 +107,7 @@ struct GameFlowView: View {
                 // signal. isEnabled defaults true: we only reach .answering
                 // once the asker has released.
                 SuspectHoldToAnswerView(bpm: vm.liveBPM,
+                                        retakeNotice: vm.retakeNotice,
                                         onPress: { vm.answererPressed() },
                                         onRelease: { vm.answererReleased() },
                                         onTap: { vm.hintHoldToTalk("Press and hold to answer") })

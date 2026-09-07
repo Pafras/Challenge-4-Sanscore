@@ -10,7 +10,7 @@ struct MockHeartRate: HeartRateSource {
     var bpm: Double = 92
     // ponytail: real camera PPG isn't instant either; this small delay lets
     // the loading screen actually be visible instead of flashing past.
-    func currentBPM() async -> Double {
+    func currentBPM() async -> Double? {
         try? await Task.sleep(for: .seconds(2))
         return bpm
     }
@@ -19,7 +19,7 @@ struct MockHeartRate: HeartRateSource {
     // suspect screen's rolling number looks alive in the Simulator.
     func startLiveCapture() async {}
     func liveBPM() -> Double? { bpm + Double(Int.random(in: -4...4)) }
-    func finishLiveCapture() async -> Double { bpm }
+    func finishLiveCapture() async -> Double? { bpm }
 }
 
 struct MockSpeech: SpeechCapturing {
@@ -37,7 +37,7 @@ struct MockStructure: StructureAnalyzing {
     var canned = StructureResult(score: 0.7, verdict: "You answered a question with a question.")
     // ponytail: real Foundation Models call takes a beat too; see note above.
     func analyze(question: String, answer: String,
-                 measuredBand: SusBand, bpm: Int, hesitation: Double) async throws -> StructureResult {
+                 measuredBand: SusBand, bpm: Int?, hesitation: Double) async throws -> StructureResult {
         try? await Task.sleep(for: .milliseconds(900))
         return canned
     }
