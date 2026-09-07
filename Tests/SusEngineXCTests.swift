@@ -13,10 +13,10 @@ import XCTest
 final class SusEngineXCTests: XCTestCase {
 
     let engine = SusEngine()
-    let baseline = Baseline(heartRate: 72, responseTime: 2.0, speechRate: 3.0)
+    let baseline = Baseline(heartRate: 72, responseTime: 0.8, speechRate: 3.0)
 
     func testCalmAnswerIsTruth() {
-        let calm = Signals(heartRate: 72, responseTime: 2.0, speechRate: 3.0, hesitation: 0.0, answerText: "yes")
+        let calm = Signals(heartRate: 72, responseTime: 0.8, speechRate: 3.0, hesitation: 0.0, answerText: "yes")
         let r = engine.score(signals: calm, baseline: baseline)
         XCTAssertEqual(r.score, 0.0, accuracy: 0.001)
         XCTAssertEqual(r.band, .veryTruth)
@@ -25,7 +25,7 @@ final class SusEngineXCTests: XCTestCase {
     func testWorkedExampleIsLiar() {
         let sus = Signals(heartRate: 92, responseTime: 4.1, speechRate: 1.6, hesitation: 0.9, answerText: "uh i was home")
         let r = engine.score(signals: sus, baseline: baseline)
-        XCTAssertEqual(r.score, 0.854, accuracy: 0.005)
+        XCTAssertEqual(r.score, 0.970, accuracy: 0.005)
         XCTAssertEqual(r.band, .verySus)
     }
 
@@ -78,6 +78,33 @@ final class SusEngineXCTests: XCTestCase {
         XCTAssertEqual(engine.score(signals: honest, baseline: baseline, structureScore: nil).score,
                        engine.score(signals: honest, baseline: baseline).score,
                        accuracy: 0.001)
+    }
+
+    // The bug this rework fixed. A missed pulse used to arrive as a neutral 75
+    // and an unheard answer as speechRate 0, so a round that measured NOTHING
+    // still scored — and scored as truthful. Missing signals are now dropped
+    // and their weight shared out, so one slow answer alone can still read sus.
+    func testMissingSignalsDoNotDragTheScoreDown() {
+        let slowAnswerOnly = Signals(heartRate: nil, responseTime: 2.4,
+                                     speechRate: nil, hesitation: nil, answerText: "uh")
+        let r = engine.score(signals: slowAnswerOnly, baseline: baseline)
+        // responseTime is the only signal, so it carries the whole score.
+        XCTAssertEqual(r.score, 1.0, accuracy: 0.001)
+        XCTAssertEqual(r.band, .verySus)
+    }
+
+    // A dropped signal must not be silently worth zero: the same round scored
+    // with a calm pulse present has to land LOWER than with the pulse missing
+    // only because the calm pulse is evidence, not because nil was cheaper.
+    func testDroppedSignalSharesItsWeightRatherThanScoringZero() {
+        let withoutHR = Signals(heartRate: nil, responseTime: 2.4,
+                                speechRate: 3.0, hesitation: 0, answerText: "uh")
+        let withCalmHR = Signals(heartRate: 72, responseTime: 2.4,
+                                 speechRate: 3.0, hesitation: 0, answerText: "uh")
+        let a = engine.score(signals: withoutHR, baseline: baseline).score
+        let b = engine.score(signals: withCalmHR, baseline: baseline).score
+        XCTAssertGreaterThan(a, b)                    // fewer signals = each counts more
+        XCTAssertEqual(a, 0.2 / 0.7, accuracy: 0.001) // rt weight over the weights present
     }
 
     func testWeightsSumToOne() {

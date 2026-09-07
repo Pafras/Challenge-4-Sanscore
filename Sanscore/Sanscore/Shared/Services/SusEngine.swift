@@ -34,15 +34,15 @@ struct SusWeights {
 // How big a deviation counts as "maxed out sus" (score 1.0) for each signal.
 // e.g. heartRate 0.3 means "a 30% jump from your baseline HR = fully sus".
 struct SusSensitivity {
-    var heartRate: Double = 0.3
-    var responseTime: Double = 1.0   // 2x slower than normal = fully sus
-    var speechRate: Double = 0.5
+    var heartRate: Double = 0.15
+    var responseTime: Double = 1.2   // 2.2x slower than normal = fully sus
+    var speechRate: Double = 0.30
 
-    // Wobble to ignore BEFORE anything counts as suspicious. Camera PPG reads
-    // ±10-15 BPM off, so ~8% of a 72 BPM baseline is sensor noise, not nerves.
-    // Without this every calm player still picked up heart-rate sus.
+    // Wobble to ignore BEFORE anything counts as suspicious — sensor noise, not
+    // nerves. Kept small: a reading that is pure noise now arrives as nil rather
+    // than as a neutral number, so the deadband no longer has to absorb it.
     // Response time and speech rate have no sensor noise floor -> 0.
-    var heartRateDeadband: Double = 0.08
+    var heartRateDeadband: Double = 0.04
 }
 
 struct SusEngine {
@@ -68,23 +68,38 @@ struct SusEngine {
 
     // The whole fusion.
     //
-    // `structureScore` is the LLM's reading of the answer's meaning, and is nil
-    // on every iPhone without Apple Intelligence. Passing nil is not a penalty:
-    // the four measured signals simply keep the full weight between them.
+    // Any signal may be nil, meaning it was never measured — no pulse found, no
+    // words heard, no Apple Intelligence on this iPhone. A nil is never a
+    // penalty: its weight is shared out among the signals that DID arrive, so
+    // the score still spans the full 0-1 range instead of being dragged toward
+    // whatever a stand-in value happened to be. Response time is the one signal
+    // that is always available, since it is two timestamps.
     func score(signals: Signals, baseline: Baseline, structureScore: Double? = nil) -> SusResult {
-        let h = normalize(signals.heartRate, baseline: baseline.heartRate, sensitivity: sensitivity.heartRate,
-                          deviation: .aboveOnly, deadband: sensitivity.heartRateDeadband)
-        let t = normalize(signals.responseTime, baseline: baseline.responseTime, sensitivity: sensitivity.responseTime,
-                          deviation: .aboveOnly)
-        let s = normalize(signals.speechRate, baseline: baseline.speechRate, sensitivity: sensitivity.speechRate)
-        let p = clamp01(signals.hesitation)
+        // (weight, 0-1 value) for every signal that actually arrived.
+        var parts: [(weight: Double, value: Double)] = []
+        if let hr = signals.heartRate {
+            parts.append((weights.heartRate,
+                          normalize(hr, baseline: baseline.heartRate, sensitivity: sensitivity.heartRate,
+                                    deviation: .aboveOnly, deadband: sensitivity.heartRateDeadband)))
+        }
+        parts.append((weights.responseTime,
+                      normalize(signals.responseTime, baseline: baseline.responseTime,
+                                sensitivity: sensitivity.responseTime, deviation: .aboveOnly)))
+        if let sr = signals.speechRate {
+            parts.append((weights.speechRate,
+                          normalize(sr, baseline: baseline.speechRate, sensitivity: sensitivity.speechRate)))
+        }
+        if let hes = signals.hesitation {
+            parts.append((weights.hesitation, clamp01(hes)))
+        }
 
-        // The measured part is already a full 0-1 score on its own (the four
-        // weights sum to 1), which is what makes mixing in the LLM a one-liner.
-        let measured = weights.heartRate * h
-                     + weights.responseTime * t
-                     + weights.speechRate * s
-                     + weights.hesitation * p
+        // Weighted average over what arrived, so the measured part is a full 0-1
+        // score whether it came from four signals or one. That is also what makes
+        // mixing in the LLM a one-liner.
+        let totalWeight = parts.reduce(0) { $0 + $1.weight }
+        let measured = totalWeight > 0
+            ? parts.reduce(0) { $0 + $1.weight * $1.value } / totalWeight
+            : 0
 
         let raw: Double
         if let structureScore {

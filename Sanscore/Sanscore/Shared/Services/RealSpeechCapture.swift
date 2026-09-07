@@ -169,7 +169,10 @@ final class RealSpeechCapture: SpeechCapturing {
 
     // A gap longer than this reads as a pause, not the normal space between
     // words. Tune both of these from playtests before touching SusEngine.
-    private static let pauseThreshold = 0.35   // seconds
-    private static let fullySus = 0.35         // 35% of the answer spent paused = 1.0
+    // Loosened after the first playtest: at 0.35/0.35 a short party answer could
+    // not reach the top of the scale even when it was full of stalling, so the
+    // signal sat near zero and the meter never left the truthful end.
+    private static let pauseThreshold = 0.30   // seconds
+    private static let fullySus = 0.25         // 25% of the answer spent paused = 1.0
 }
 #endif

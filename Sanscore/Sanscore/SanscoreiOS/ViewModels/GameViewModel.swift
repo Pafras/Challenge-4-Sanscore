@@ -88,11 +88,12 @@ final class GameViewModel {
     // --- Per-player baseline from the calibration round ---
     // ponytail: default baseline lets the app run before calibration is built.
     // TODO(marleen): fill this from the real calibration round (2-3 easy Qs).
-    // speechRate 3.0 = words/sec of ordinary relaxed speech. It used to be 2.2,
-    // which is slower than most people actually talk — so every normal answer
-    // already scored a big deviation and read as sus. Only the HR baseline is
-    // measured for real; these two are still defaults (see calibration below).
-    var baseline = Baseline(heartRate: 72, responseTime: 2.0, speechRate: 3.0)
+    // Only the HR baseline is measured for real; the other two are defaults.
+    // responseTime 0.8s = how fast people answer when they are not weighing
+    // their words. It used to be 2.0s, which almost nobody exceeds, so the
+    // signal scored 0 every round and its weight was wasted.
+    // speechRate 3.0 = words/sec of ordinary relaxed speech.
+    var baseline = Baseline(heartRate: 72, responseTime: 0.8, speechRate: 3.0)
     // --- The engine + the swappable capture modules ---
     private let engine: SusEngine
     private var heart: HeartRateSource
@@ -411,8 +412,13 @@ final class GameViewModel {
             // Answerer finished — swap the asker's/spectators' waiting screen for
             // the spinning meter. Its needle sweeps (lastResult still nil) until
             // the .result message lands them on the verdict.
-            guard state == .waitingForResult || state == .spectating else { return }
+            // Re-sent when the answerer retakes a captured-nothing round, so
+            // accept it while already calculating and restart the backstop —
+            // otherwise a retake can outlive the 30s timer and dump the room
+            // back into the lobby.
+            guard state == .waitingForResult || state == .spectating || state == .calculating else { return }
             state = .calculating
+            armResultTimeout()
         case let .result(result):
             // Asker (waiting) + spectators show it; the answerer already has it.
             guard state == .waitingForResult || state == .spectating || state == .calculating else { return }
@@ -480,6 +486,7 @@ final class GameViewModel {
     // order: calibrate first (once per session, all devices in parallel),
     // then the LET'S BEGIN / picking-roles sequence.
     private func applyTurn(asker: String, answerer: String) {
+        retakeNotice = nil
         lastResult = nil
         resultBPM = nil
         resultTranscript = nil
@@ -580,6 +587,9 @@ final class GameViewModel {
     // warning first, then live HR capture runs THROUGH the answer, feeding
     // the rolling BPM readout — HR is measured during the stress, not after.
     private(set) var liveBPM: Int?
+    /// Set when a round captured nothing and is being retaken; the answering
+    /// screen shows it instead of the usual subtitle. Cleared on the next answer.
+    private(set) var retakeNotice: String?
 
     // True once any round in this session finished. Drives the roleReveal
     // intro card: first round = LET'S BEGIN, after = WHO'S NEXT. (Can't use
@@ -791,11 +801,13 @@ final class GameViewModel {
             poll.cancel()
             // Hold the final reading on screen for a beat, then move on to
             // LET'S BEGIN -> picking roles (RoleRevealIntro handles the card).
-            liveBPM = Int(bpm.rounded())
+            liveBPM = bpm.map { Int($0.rounded()) }
             try? await Task.sleep(for: .seconds(1.5))
             liveBPM = nil
 
-            baseline.heartRate = bpm
+            // Keep the default baseline when the lens was missed — calibrating
+            // against a reading that never happened would skew every round.
+            if let bpm { baseline.heartRate = bpm }
             isCalibrated = true
             // Mid-flow (Figma: calibrate right after the host starts):
             // continue into the round. Stand-alone: back to the start.
@@ -888,24 +900,29 @@ final class GameViewModel {
         // this just stops the camera and reads the estimate — near instant.
         let bpm = await heart.finishLiveCapture()
         liveBPM = nil
-        let recordedBPM = Int(bpm.rounded())   // shown on the result screen + broadcast
+        let recordedBPM = bpm.map { Int($0.rounded()) }   // nil = no pulse found
         resultBPM = recordedBPM
         let transcript = speechResult.text.isEmpty ? nil : speechResult.text   // closed captions
         resultTranscript = transcript
 
-        // Nothing transcribed (mic failed, permission denied, or they stayed
-        // silent) means the two speech signals are MISSING, not bad. Left raw,
-        // speechRate would be 0 — which the engine reads as a maximum deviation
-        // from baseline and scores as +0.2 sus, punishing a broken microphone
-        // while the screen says "couldn't hear you". Feeding the player's own
-        // baseline back makes that deviation zero, so the round is scored on
-        // heart rate and response time, both of which really were measured.
+        // A signal we never captured is passed as nil, not as a stand-in number:
+        // nothing transcribed means no speech rate and no hesitation, and no
+        // pulse means no heart rate. SusEngine shares their weight out among
+        // whatever did arrive.
         let heard = !speechResult.text.isEmpty
         let signals = Signals(heartRate: bpm,
                               responseTime: responseTime,
-                              speechRate: heard ? speechResult.speechRate : baseline.speechRate,
-                              hesitation: heard ? speechResult.hesitation : 0,
+                              speechRate: heard ? speechResult.speechRate : nil,
+                              hesitation: heard ? speechResult.hesitation : nil,
                               answerText: speechResult.text)
+
+        // Nothing heard AND no pulse = nothing to judge. A verdict here is worse
+        // than no verdict: the meter reads "100% TRUTH" right next to "couldn't
+        // hear you", and players take the number seriously. Retake the answer.
+        if !heard && bpm == nil {
+            await retakeAnswer()
+            return
+        }
 
         // Sensors first. This score stands on its own and is what plays on an
         // iPhone without Apple Intelligence.
@@ -936,11 +953,22 @@ final class GameViewModel {
         room.send(.result(RoundResult(answererName: myName, score: result.score, verdict: result.verdict, bpm: recordedBPM, transcript: transcript)))
     }
 
+    // Sends the answerer back to record again, and tells the rest of the room to
+    // keep waiting instead of timing out. Only reached when a round captured
+    // nothing at all.
+    private func retakeAnswer() async {
+        retakeNotice = String(localized: "Couldn't hear you, and no pulse either. Hold the phone with a fingertip on the rear camera and answer again.")
+        // Re-arms the 30s no-result backstop on the asker + spectators; without
+        // this a retake can outlast their timer and dump everyone in the lobby.
+        room.send(.calculating)
+        await beginAnswering()
+    }
+
     // The LLM's reading of the answer, or nil — no Apple Intelligence on this
     // iPhone, nothing transcribed, or the call failed. Every nil path ends in
     // the same place: the measured score stands and VerdictLines writes the line.
     private func readStructure(answer: String, measuredBand: SusBand,
-                               bpm: Int, hesitation: Double) async -> StructureResult? {
+                               bpm: Int?, hesitation: Double) async -> StructureResult? {
         guard let structure, !answer.isEmpty else { return nil }
         return try? await structure.analyze(question: currentQuestion, answer: answer,
                                             measuredBand: measuredBand,
