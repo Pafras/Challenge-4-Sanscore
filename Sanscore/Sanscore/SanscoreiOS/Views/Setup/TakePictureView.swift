@@ -84,6 +84,10 @@ struct SussButtonStyle: ButtonStyle {
     var tint: Color = .white  // light-variant glass tint
     /// 50% radial-gradient fill instead of glass (drawer EXIT: FFC1EB -> EB0067).
     var gradientColors: [Color]? = nil
+    /// How solid that gradient is. 0.5 matches Figma over the pink screens, but
+    /// the result screens sit on green/red, where half-transparent pink turns
+    /// grey — they pass 1 so the button reads as the vivid pink in the design.
+    var fillOpacity: Double = 0.5
 
     func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: 24)
@@ -100,7 +104,7 @@ struct SussButtonStyle: ButtonStyle {
             if let fill {
                 padded.background {
                     shape.fill(EllipticalGradient(colors: fill, center: .center))
-                        .opacity(configuration.isPressed ? 0.8 : 0.5)
+                        .opacity(configuration.isPressed ? fillOpacity * 0.8 : fillOpacity)
                 }
             } else {
                 padded.glassEffect(

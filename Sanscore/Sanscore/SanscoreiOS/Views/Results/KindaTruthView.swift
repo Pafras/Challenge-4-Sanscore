@@ -141,7 +141,8 @@ struct KindaTruthView: View {
                     }
                     .buttonStyle(SussButtonStyle(
                         horizontalPadding: 24,
-                        gradientColors: [Color(hex: "FFC1EB"), Color(hex: "EB0067")]))
+                        gradientColors: [Color(hex: "FFC1EB"), Color(hex: "EB0067")],
+                        fillOpacity: 1))
                     .disabled(iAmReady)
                     .opacity(iAmReady ? 0.55 : 1)   // locked once I'm ready
                 }

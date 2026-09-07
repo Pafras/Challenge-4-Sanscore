@@ -160,7 +160,8 @@ struct VerySusView: View {
                     }
                     .buttonStyle(SussButtonStyle(
                         horizontalPadding: 24,
-                        gradientColors: [Color(hex: "FFC1EB"), Color(hex: "EB0067")]))
+                        gradientColors: [Color(hex: "FFC1EB"), Color(hex: "EB0067")],
+                        fillOpacity: 1))
                     .disabled(iAmReady)
                     .opacity(iAmReady ? 0.55 : 1)   // locked once I'm ready
                 }
@@ -206,6 +207,7 @@ struct PeakBPMCard: View {
     // ─── TUNABLES ─────────────────────────────────────────────────────────
     private let cardWidth: CGFloat = 369
     private let cardHeight: CGFloat = 102
+    private let cardCorner: CGFloat = 28
     private let numberSize: CGFloat = 30
     private let labelSize: CGFloat = 18
     // ──────────────────────────────────────────────────────────────────────
@@ -234,12 +236,15 @@ struct PeakBPMCard: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 22)
         .frame(width: cardWidth, height: cardHeight)
+        // A translucent darkening rather than the old `result-wave-placeholder`
+        // art: that asset is an opaque maroon plate drawn for the red screens,
+        // so on the green truth screens it landed as a foreign block. Tinting
+        // whatever is behind keeps one card correct on all four backgrounds.
         .background(
-            Image("result-wave-placeholder")
-                .resizable()
-                .scaledToFill()
+            RoundedRectangle(cornerRadius: cardCorner)
+                .fill(.black.opacity(0.28))
         )
-        .clipShape(RoundedRectangle(cornerRadius: 24))   // in case bg overflows
+        .clipShape(RoundedRectangle(cornerRadius: cardCorner))
     }
 }
 
