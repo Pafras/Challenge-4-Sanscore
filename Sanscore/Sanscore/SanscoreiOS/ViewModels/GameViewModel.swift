@@ -289,6 +289,12 @@ final class GameViewModel {
         // stops a dropped opportunistic link from falsely removing a player who's
         // still in the room (the "3 -> 2 at picking-roles" bug).
         if !room.isHost {
+            // Invite failed / connection dropped before the host answered —
+            // say so now instead of making them wait out the timeout.
+            if pendingJoin {
+                failJoin()
+                return
+            }
             if state != .idle, everConnected, room.connectedPeers.isEmpty {
                 endRoom("The room closed — the host left.")
             }
@@ -296,7 +302,9 @@ final class GameViewModel {
         }
 
         // --- Host path: authoritative. Host sees every real leave. ---
-        lobbyMembers.remove(name)
+        // Someone who never finished setup (e.g. a wrong-code joiner we just
+        // dropped) was never in the room — no roster change, no "left" toast.
+        guard lobbyMembers.remove(name) != nil else { return }
         broadcastRosterIfHost()   // push the shrunk roster to every joiner
         // If we're waiting at the reveal barrier, stop waiting on the leaver —
         // otherwise the host hangs until the 25s timeout.
@@ -687,6 +695,9 @@ final class GameViewModel {
         // the code matches its generated one. We move to identity only once
         // actually connected (see connectionChanged). Keep browsing so the room
         // stays listed.
+        // One invite at a time — a second invite while the first is still
+        // connecting confuses the session and neither one lands.
+        guard !pendingJoin else { return }
         joinError = nil
         pendingJoin = true
         joinToken &+= 1
@@ -695,11 +706,22 @@ final class GameViewModel {
         // Safety net ONLY: the host replies joinAccepted/joinRejected the instant
         // we connect (handled in handle()), so a wrong code warns immediately.
         // This fires just if neither reply arrives — host vanished / bad network.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+        // Must outlast the 15s invite timeout: an encrypted handshake can take
+        // ~10s on real phones, and giving up early dropped a join that was
+        // about to succeed.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 18) { [weak self] in
             guard let self, self.pendingJoin, self.joinToken == token else { return }
-            self.pendingJoin = false
-            self.joinError = "Couldn't reach the room. Try again."
+            self.failJoin()
         }
+    }
+
+    // Join attempt failed (timed out or the connection dropped). Drop any
+    // half-open session so the next try starts clean.
+    private func failJoin() {
+        pendingJoin = false
+        joinToken &+= 1
+        joinError = "Couldn't reach the room. Try again."
+        room.disconnectSession()
     }
 
     // JOIN on the identity screen -> actually enter the lobby. If they tapped
