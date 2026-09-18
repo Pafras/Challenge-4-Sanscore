@@ -21,6 +21,11 @@ final class GameViewModel {
     var lastResult: SusResult?
     private(set) var resultBPM: Int?   // answerer's recorded BPM for the shown result
     private(set) var resultTranscript: String?   // what the answerer said (closed captions, final)
+    #if DEBUG
+    // Dev-only: each signal's raw value, 0-1 sus share and weight for the shown
+    // result, so a playtest can see which signal never moves. Answerer's phone only.
+    private(set) var debugBreakdown: String?
+    #endif
     private(set) var liveCaption: String?        // live transcript during the answer (closed captions)
 
     // The caption text to show for the current screen (nil = nothing). Live
@@ -94,6 +99,12 @@ final class GameViewModel {
     // signal scored 0 every round and its weight was wasted.
     // speechRate 3.0 = words/sec of ordinary relaxed speech.
     var baseline = Baseline(heartRate: 72, responseTime: 0.8, speechRate: 3.0)
+    // This player's own earlier answers this session. Response time and speech
+    // rate are scored against the median of these (Baseline.rolling) instead of
+    // one fixed number for everyone — a naturally slow talker isn't "sus" every
+    // round, and a change from THEIR normal is what counts. Cleared on endRoom.
+    private var pastResponseTimes: [Double] = []
+    private var pastSpeechRates: [Double] = []
     // --- The engine + the swappable capture modules ---
     private let engine: SusEngine
     private var heart: HeartRateSource
@@ -379,6 +390,8 @@ final class GameViewModel {
         round = 0
         hasPlayedARound = false   // next session's first reveal = LET'S BEGIN again
         isCalibrated = false      // room closed → next session calibrates from scratch
+        pastResponseTimes = []    // new session, new players -> fresh rolling baselines
+        pastSpeechRates = []
         waitToken += 1          // cancel any pending round timeout
         state = .idle
         // Auto-dismiss the home-screen notice after 3s so it doesn't linger.
@@ -498,6 +511,9 @@ final class GameViewModel {
         lastResult = nil
         resultBPM = nil
         resultTranscript = nil
+        #if DEBUG
+        debugBreakdown = nil
+        #endif
         liveCaption = nil
         nextReady.removeAll()          // fresh ready-up for the new round
         currentQuestion = ""
@@ -771,6 +787,30 @@ final class GameViewModel {
     }
 
     #if DEBUG
+    // One line per signal: raw value (baseline) -> 0-1 sus share, and its weight.
+    // "--" = never measured (its weight is shared out among the others).
+    private static func breakdown(_ s: Signals, _ b: Baseline, _ e: SusEngine,
+                                  _ llm: Double?, _ final: Double) -> String {
+        let w = e.weights, k = e.sensitivity
+        func f(_ x: Double) -> String { String(format: "%.2f", x) }
+        let hr = s.heartRate.map {
+            "HR  \(Int($0)) bpm (base \(Int(b.heartRate))) -> " + f(e.normalize($0, baseline: b.heartRate, sensitivity: k.heartRate, deviation: .aboveOnly, deadband: k.heartRateDeadband))
+        } ?? "HR  --"
+        let rt = "RT  \(f(s.responseTime))s (base \(f(b.responseTime))) -> " + f(e.normalize(s.responseTime, baseline: b.responseTime, sensitivity: k.responseTime, deviation: .aboveOnly))
+        let sr = s.speechRate.map {
+            "SR  \(f($0)) w/s (base \(f(b.speechRate))) -> " + f(e.normalize($0, baseline: b.speechRate, sensitivity: k.speechRate))
+        } ?? "SR  --"
+        let hes = s.hesitation.map { "HES \(Int($0 * 100))% pausing -> " + f(min(max($0, 0), 1)) } ?? "HES --"
+        return """
+            \(hr)  x\(f(w.heartRate))
+            \(rt)  x\(f(w.responseTime))
+            \(sr)  x\(f(w.speechRate))
+            \(hes)  x\(f(w.hesitation))
+            LLM \(llm.map(f) ?? "--")  share \(f(w.structure))
+            = \(f(final))
+            """
+    }
+
     // Dev-only: force this device's role for solo screen testing (no room).
     func forceRole(_ role: PlayerRole) {
         applyTurn(asker: role == .asker ? myName : "_",
@@ -948,6 +988,14 @@ final class GameViewModel {
 
         // Sensors first. This score stands on its own and is what plays on an
         // iPhone without Apple Intelligence.
+        // Score against THIS player's usual pace, then add this round to it.
+        let baseline = Baseline(
+            heartRate: self.baseline.heartRate,
+            responseTime: Baseline.rolling(default: self.baseline.responseTime, history: pastResponseTimes),
+            speechRate: Baseline.rolling(default: self.baseline.speechRate, history: pastSpeechRates))
+        if responseTime > 0 { pastResponseTimes.append(responseTime) }
+        if let sr = signals.speechRate, sr > 0 { pastSpeechRates.append(sr) }
+
         let measured = engine.score(signals: signals, baseline: baseline)
 
         // Then, only where the device can: let the LLM read what the answer
@@ -964,6 +1012,9 @@ final class GameViewModel {
                                                             answer: speechResult.text)
         lastResult = result
         hasPlayedARound = true
+        #if DEBUG
+        debugBreakdown = Self.breakdown(signals, baseline, engine, structure?.score, result.score)
+        #endif
 
         // Score is known now, but hold on the .calculating screen a beat so its
         // meter needle can animate to the real score before we reveal .result.

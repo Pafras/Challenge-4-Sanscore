@@ -92,6 +92,12 @@ func runSusEngineTests() {
     // 5) Weights sum to 1.0 (sanity: no accidental scaling).
     assert(approxEqual(engine.weights.sum, 1.0), "weights must sum to 1.0, got \(engine.weights.sum)")
 
+    // 6) Rolling per-player baseline: default first, then the player's own median.
+    assert(approxEqual(Baseline.rolling(default: 3.0, history: []), 3.0), "no history -> default")
+    assert(approxEqual(Baseline.rolling(default: 3.0, history: [2.0]), 2.5), "one round -> halfway")
+    assert(approxEqual(Baseline.rolling(default: 3.0, history: [2.0, 2.1, 1.9, 9.0]), 2.1),
+           "median ignores one wild round")
+
     print("All SusEngine tests passed.")
 }
 

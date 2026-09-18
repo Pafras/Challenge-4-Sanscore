@@ -29,6 +29,20 @@ struct Baseline {
     var speechRate: Double
 }
 
+extension Baseline {
+    // A player's "normal" for a signal that calibration doesn't measure
+    // (response time, speech rate): the median of their own earlier answers,
+    // with the default counted as one extra round. So round 1 uses the default,
+    // round 2 sits halfway between the default and round 1, and after a few
+    // rounds it is simply "how this person usually answers". Median, not mean,
+    // so one wild round (a lie, a cough) can't drag the baseline with it.
+    static func rolling(default fallback: Double, history: [Double]) -> Double {
+        let xs = ([fallback] + history).sorted()
+        let mid = xs.count / 2
+        return xs.count % 2 == 1 ? xs[mid] : (xs[mid - 1] + xs[mid]) / 2
+    }
+}
+
 // What the LLM returns after reading the answer text — on the iPhones that have
 // one. Both halves are optional extras: the score is folded into the fusion as a
 // fifth signal, the verdict replaces the local line.
