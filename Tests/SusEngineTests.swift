@@ -92,11 +92,16 @@ func runSusEngineTests() {
     // 5) Weights sum to 1.0 (sanity: no accidental scaling).
     assert(approxEqual(engine.weights.sum, 1.0), "weights must sum to 1.0, got \(engine.weights.sum)")
 
-    // 6) Rolling per-player baseline: default first, then the player's own median.
-    assert(approxEqual(Baseline.rolling(default: 3.0, history: []), 3.0), "no history -> default")
-    assert(approxEqual(Baseline.rolling(default: 3.0, history: [2.0]), 2.5), "one round -> halfway")
-    assert(approxEqual(Baseline.rolling(default: 3.0, history: [2.0, 2.1, 1.9, 9.0]), 2.1),
+    // 6) Rolling per-player baseline: none before round 1, then the player's own median.
+    assert(Baseline.rolling(history: []) == nil, "no history -> no baseline, pace sits round 1 out")
+    assert(approxEqual(Baseline.rolling(history: [2.0])!, 2.0), "one round -> that round")
+    assert(approxEqual(Baseline.rolling(history: [2.0, 2.1, 1.9, 9.0])!, 2.05),
            "median ignores one wild round")
+
+    // 7) Round 1: no pace signals -> judged on what's left, never a free zero.
+    let round1 = engine.score(signals: Signals(heartRate: 92, responseTime: nil, speechRate: nil,
+                                               hesitation: 0.9, answerText: "uh"), baseline: baseline)
+    assert(round1.score > 0.5, "nervous round 1 must still read sus without pace, got \(round1.score)")
 
     print("All SusEngine tests passed.")
 }

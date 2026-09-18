@@ -14,7 +14,7 @@ import Foundation
 // out among the ones that did arrive.
 struct Signals {
     var heartRate: Double?     // beats per minute, e.g. 92. nil = camera never found a pulse
-    var responseTime: Double   // seconds from "done asking" to first word, e.g. 4.1
+    var responseTime: Double?  // seconds from "done asking" to first word, e.g. 4.1. nil = no baseline yet (round 1)
     var speechRate: Double?    // words per second, e.g. 1.6. nil = nothing transcribed
     var hesitation: Double?    // 0-1, share of the answer spent pausing mid-sentence
     var answerText: String     // what SFSpeechRecognizer transcribed
@@ -31,13 +31,13 @@ struct Baseline {
 
 extension Baseline {
     // A player's "normal" for a signal that calibration doesn't measure
-    // (response time, speech rate): the median of their own earlier answers,
-    // with the default counted as one extra round. So round 1 uses the default,
-    // round 2 sits halfway between the default and round 1, and after a few
-    // rounds it is simply "how this person usually answers". Median, not mean,
-    // so one wild round (a lie, a cough) can't drag the baseline with it.
-    static func rolling(default fallback: Double, history: [Double]) -> Double {
-        let xs = ([fallback] + history).sorted()
+    // (response time, speech rate): the median of their own earlier answers.
+    // nil before their first answer — round 1 is not judged on pace at all, it
+    // BECOMES the baseline, so no one is compared to a made-up average.
+    // Median, not mean, so one wild round (a lie, a cough) can't drag it.
+    static func rolling(history: [Double]) -> Double? {
+        guard !history.isEmpty else { return nil }
+        let xs = history.sorted()
         let mid = xs.count / 2
         return xs.count % 2 == 1 ? xs[mid] : (xs[mid - 1] + xs[mid]) / 2
     }

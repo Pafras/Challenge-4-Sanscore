@@ -93,7 +93,9 @@ final class GameViewModel {
     // --- Per-player baseline from the calibration round ---
     // ponytail: default baseline lets the app run before calibration is built.
     // TODO(marleen): fill this from the real calibration round (2-3 easy Qs).
-    // Only the HR baseline is measured for real; the other two are defaults.
+    // Only the HR baseline is measured here. responseTime/speechRate below are
+    // NOT used for scoring any more — pace is compared to the player's own
+    // earlier answers (Baseline.rolling); these only fill the struct.
     // responseTime 0.8s = how fast people answer when they are not weighing
     // their words. It used to be 2.0s, which almost nobody exceeds, so the
     // signal scored 0 every round and its weight was wasted.
@@ -796,10 +798,12 @@ final class GameViewModel {
         let hr = s.heartRate.map {
             "HR  \(Int($0)) bpm (base \(Int(b.heartRate))) -> " + f(e.normalize($0, baseline: b.heartRate, sensitivity: k.heartRate, deviation: .aboveOnly, deadband: k.heartRateDeadband))
         } ?? "HR  --"
-        let rt = "RT  \(f(s.responseTime))s (base \(f(b.responseTime))) -> " + f(e.normalize(s.responseTime, baseline: b.responseTime, sensitivity: k.responseTime, deviation: .aboveOnly))
+        let rt = s.responseTime.map {
+            "RT  \(f($0))s (base \(f(b.responseTime))) -> " + f(e.normalize($0, baseline: b.responseTime, sensitivity: k.responseTime, deviation: .aboveOnly))
+        } ?? "RT  -- (round 1: setting baseline)"
         let sr = s.speechRate.map {
             "SR  \(f($0)) w/s (base \(f(b.speechRate))) -> " + f(e.normalize($0, baseline: b.speechRate, sensitivity: k.speechRate))
-        } ?? "SR  --"
+        } ?? "SR  -- (round 1 or not heard)"
         let hes = s.hesitation.map { "HES \(Int($0 * 100))% pausing -> " + f(min(max($0, 0), 1)) } ?? "HES --"
         return """
             \(hr)  x\(f(w.heartRate))
@@ -822,9 +826,9 @@ final class GameViewModel {
     // One quick sequence, no prompts: LETS CALIBRATE instruction -> put-finger
     // warning -> MEASURING HEART RATE ("I swear that I'm telling the truth",
     // live BPM). Captures the player's resting HR as the baseline.
-    // ponytail: only the HR baseline is measured now; responseTime/speechRate
-    // baselines stay at their defaults. Bring back spoken calibration prompts
-    // if those two signals score poorly.
+    // ponytail: only the HR baseline is measured here; responseTime/speechRate
+    // baselines come from the player's own round 1+ (Baseline.rolling), so round
+    // 1 isn't judged on pace. Add spoken calibration prompts to judge it too.
     var isCalibrated = false
     // What to do once calibration finishes (continue into the round). nil =
     // stand-alone calibration, fall back to the start screen.
@@ -972,9 +976,15 @@ final class GameViewModel {
         // pulse means no heart rate. SusEngine shares their weight out among
         // whatever did arrive.
         let heard = !speechResult.text.isEmpty
+        // Pace is judged against THIS player's own earlier answers. With no
+        // earlier answer yet (round 1) there is nothing to compare to, so pace
+        // sits the round out — nil, weight shared among the other signals.
+        let rtBase = Baseline.rolling(history: pastResponseTimes)
+        let srBase = Baseline.rolling(history: pastSpeechRates)
+        let rawSpeechRate = heard ? speechResult.speechRate : nil
         let signals = Signals(heartRate: bpm,
-                              responseTime: responseTime,
-                              speechRate: heard ? speechResult.speechRate : nil,
+                              responseTime: rtBase == nil ? nil : responseTime,
+                              speechRate: srBase == nil ? nil : rawSpeechRate,
                               hesitation: heard ? speechResult.hesitation : nil,
                               answerText: speechResult.text)
 
@@ -989,12 +999,11 @@ final class GameViewModel {
         // Sensors first. This score stands on its own and is what plays on an
         // iPhone without Apple Intelligence.
         // Score against THIS player's usual pace, then add this round to it.
-        let baseline = Baseline(
-            heartRate: self.baseline.heartRate,
-            responseTime: Baseline.rolling(default: self.baseline.responseTime, history: pastResponseTimes),
-            speechRate: Baseline.rolling(default: self.baseline.speechRate, history: pastSpeechRates))
+        let baseline = Baseline(heartRate: self.baseline.heartRate,
+                                responseTime: rtBase ?? self.baseline.responseTime,
+                                speechRate: srBase ?? self.baseline.speechRate)
         if responseTime > 0 { pastResponseTimes.append(responseTime) }
-        if let sr = signals.speechRate, sr > 0 { pastSpeechRates.append(sr) }
+        if let sr = rawSpeechRate, sr > 0 { pastSpeechRates.append(sr) }
 
         let measured = engine.score(signals: signals, baseline: baseline)
 
