@@ -49,6 +49,20 @@ struct EditProfileView: View {
 /// rest echo the game-room bubble colours). Marleen will swap these for real
 /// background images later.
 extension View {
+    /// Liquid Glass where the OS has it (iOS 26+), a frosted material below.
+    /// One place, so every button in the app falls back the same way.
+    @ViewBuilder
+    func sussGlass<S: Shape>(tint: Color, opacity: Double,
+                             interactive: Bool = false, in shape: S) -> some View {
+        if #available(iOS 26.0, *) {
+            let base = Glass.regular.tint(tint.opacity(opacity))
+            glassEffect(interactive ? base.interactive() : base, in: shape)
+        } else {
+            background(.ultraThinMaterial, in: shape)
+                .background(tint.opacity(opacity * 0.6), in: shape)
+        }
+    }
+
     /// Circle ACTION button (X / back / camera badge) — Figma action button:
     /// light glass (white 50%), white 50% inside stroke 4, soft shadow.
     /// `dark: true` = game-room variant: 50% radial gradient 3F3F3F -> 000000,
@@ -66,7 +80,9 @@ extension View {
             .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 4))
             .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
         } else {
-            glassEffect(.regular.tint(.white.opacity(0.5)).interactive(), in: Circle())
+            // Liquid Glass is iOS 26; below that a frosted material is the
+            // closest stock look (same tint + stroke, no light refraction).
+            sussGlass(tint: .white, opacity: 0.5, interactive: true, in: Circle())
                 .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 4))
                 .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
         }
@@ -107,9 +123,9 @@ struct SussButtonStyle: ButtonStyle {
                         .opacity(configuration.isPressed ? fillOpacity * 0.8 : fillOpacity)
                 }
             } else {
-                padded.glassEffect(
-                    .regular.tint(tint.opacity(configuration.isPressed ? 0.8 : 0.5)),
-                    in: shape)
+                padded.sussGlass(tint: tint,
+                                 opacity: configuration.isPressed ? 0.8 : 0.5,
+                                 in: shape)
             }
         }
         .overlay { if glisten { GlistenBeam().clipShape(shape) } }
