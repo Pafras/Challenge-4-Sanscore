@@ -176,6 +176,21 @@ struct GameFlowView: View {
                 }
             }
         }
+        #if DEBUG
+        // Dev-only per-signal readout on the answerer's result screen (playtest
+        // tuning). Not compiled into release builds.
+        .overlay(alignment: .top) {
+            if vm.state == .result, let text = vm.debugBreakdown {
+                Text(text)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .padding(8)
+                    .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(.top, 60)
+                    .allowsHitTesting(false)
+            }
+        }
+        #endif
         .animation(.default, value: vm.state)
         // ── SOUND ─────────────────────────────────────────────────────────
         // BGM follows the screen GROUP (playBGM no-ops when the track is

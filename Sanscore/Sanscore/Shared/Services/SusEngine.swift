@@ -72,8 +72,8 @@ struct SusEngine {
     // words heard, no Apple Intelligence on this iPhone. A nil is never a
     // penalty: its weight is shared out among the signals that DID arrive, so
     // the score still spans the full 0-1 range instead of being dragged toward
-    // whatever a stand-in value happened to be. Response time is the one signal
-    // that is always available, since it is two timestamps.
+    // whatever a stand-in value happened to be. Response time is nil only on a
+    // player's first round, while their own baseline is still being set.
     func score(signals: Signals, baseline: Baseline, structureScore: Double? = nil) -> SusResult {
         // (weight, 0-1 value) for every signal that actually arrived.
         var parts: [(weight: Double, value: Double)] = []
@@ -82,9 +82,11 @@ struct SusEngine {
                           normalize(hr, baseline: baseline.heartRate, sensitivity: sensitivity.heartRate,
                                     deviation: .aboveOnly, deadband: sensitivity.heartRateDeadband)))
         }
-        parts.append((weights.responseTime,
-                      normalize(signals.responseTime, baseline: baseline.responseTime,
-                                sensitivity: sensitivity.responseTime, deviation: .aboveOnly)))
+        if let rt = signals.responseTime {
+            parts.append((weights.responseTime,
+                          normalize(rt, baseline: baseline.responseTime,
+                                    sensitivity: sensitivity.responseTime, deviation: .aboveOnly)))
+        }
         if let sr = signals.speechRate {
             parts.append((weights.speechRate,
                           normalize(sr, baseline: baseline.speechRate, sensitivity: sensitivity.speechRate)))

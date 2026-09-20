@@ -21,6 +21,11 @@ final class GameViewModel {
     var lastResult: SusResult?
     private(set) var resultBPM: Int?   // answerer's recorded BPM for the shown result
     private(set) var resultTranscript: String?   // what the answerer said (closed captions, final)
+    #if DEBUG
+    // Dev-only: each signal's raw value, 0-1 sus share and weight for the shown
+    // result, so a playtest can see which signal never moves. Answerer's phone only.
+    private(set) var debugBreakdown: String?
+    #endif
     private(set) var liveCaption: String?        // live transcript during the answer (closed captions)
 
     // The caption text to show for the current screen (nil = nothing). Live
@@ -88,12 +93,20 @@ final class GameViewModel {
     // --- Per-player baseline from the calibration round ---
     // ponytail: default baseline lets the app run before calibration is built.
     // TODO(marleen): fill this from the real calibration round (2-3 easy Qs).
-    // Only the HR baseline is measured for real; the other two are defaults.
+    // Only the HR baseline is measured here. responseTime/speechRate below are
+    // NOT used for scoring any more — pace is compared to the player's own
+    // earlier answers (Baseline.rolling); these only fill the struct.
     // responseTime 0.8s = how fast people answer when they are not weighing
     // their words. It used to be 2.0s, which almost nobody exceeds, so the
     // signal scored 0 every round and its weight was wasted.
     // speechRate 3.0 = words/sec of ordinary relaxed speech.
     var baseline = Baseline(heartRate: 72, responseTime: 0.8, speechRate: 3.0)
+    // This player's own earlier answers this session. Response time and speech
+    // rate are scored against the median of these (Baseline.rolling) instead of
+    // one fixed number for everyone — a naturally slow talker isn't "sus" every
+    // round, and a change from THEIR normal is what counts. Cleared on endRoom.
+    private var pastResponseTimes: [Double] = []
+    private var pastSpeechRates: [Double] = []
     // --- The engine + the swappable capture modules ---
     private let engine: SusEngine
     private var heart: HeartRateSource
@@ -289,6 +302,12 @@ final class GameViewModel {
         // stops a dropped opportunistic link from falsely removing a player who's
         // still in the room (the "3 -> 2 at picking-roles" bug).
         if !room.isHost {
+            // Invite failed / connection dropped before the host answered —
+            // say so now instead of making them wait out the timeout.
+            if pendingJoin {
+                failJoin()
+                return
+            }
             if state != .idle, everConnected, room.connectedPeers.isEmpty {
                 endRoom("The room closed — the host left.")
             }
@@ -296,7 +315,9 @@ final class GameViewModel {
         }
 
         // --- Host path: authoritative. Host sees every real leave. ---
-        lobbyMembers.remove(name)
+        // Someone who never finished setup (e.g. a wrong-code joiner we just
+        // dropped) was never in the room — no roster change, no "left" toast.
+        guard lobbyMembers.remove(name) != nil else { return }
         broadcastRosterIfHost()   // push the shrunk roster to every joiner
         // If we're waiting at the reveal barrier, stop waiting on the leaver —
         // otherwise the host hangs until the 25s timeout.
@@ -371,6 +392,8 @@ final class GameViewModel {
         round = 0
         hasPlayedARound = false   // next session's first reveal = LET'S BEGIN again
         isCalibrated = false      // room closed → next session calibrates from scratch
+        pastResponseTimes = []    // new session, new players -> fresh rolling baselines
+        pastSpeechRates = []
         waitToken += 1          // cancel any pending round timeout
         state = .idle
         // Auto-dismiss the home-screen notice after 3s so it doesn't linger.
@@ -490,6 +513,9 @@ final class GameViewModel {
         lastResult = nil
         resultBPM = nil
         resultTranscript = nil
+        #if DEBUG
+        debugBreakdown = nil
+        #endif
         liveCaption = nil
         nextReady.removeAll()          // fresh ready-up for the new round
         currentQuestion = ""
@@ -687,6 +713,9 @@ final class GameViewModel {
         // the code matches its generated one. We move to identity only once
         // actually connected (see connectionChanged). Keep browsing so the room
         // stays listed.
+        // One invite at a time — a second invite while the first is still
+        // connecting confuses the session and neither one lands.
+        guard !pendingJoin else { return }
         joinError = nil
         pendingJoin = true
         joinToken &+= 1
@@ -695,11 +724,22 @@ final class GameViewModel {
         // Safety net ONLY: the host replies joinAccepted/joinRejected the instant
         // we connect (handled in handle()), so a wrong code warns immediately.
         // This fires just if neither reply arrives — host vanished / bad network.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+        // Must outlast the 15s invite timeout: an encrypted handshake can take
+        // ~10s on real phones, and giving up early dropped a join that was
+        // about to succeed.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 18) { [weak self] in
             guard let self, self.pendingJoin, self.joinToken == token else { return }
-            self.pendingJoin = false
-            self.joinError = "Couldn't reach the room. Try again."
+            self.failJoin()
         }
+    }
+
+    // Join attempt failed (timed out or the connection dropped). Drop any
+    // half-open session so the next try starts clean.
+    private func failJoin() {
+        pendingJoin = false
+        joinToken &+= 1
+        joinError = "Couldn't reach the room. Try again."
+        room.disconnectSession()
     }
 
     // JOIN on the identity screen -> actually enter the lobby. If they tapped
@@ -749,6 +789,32 @@ final class GameViewModel {
     }
 
     #if DEBUG
+    // One line per signal: raw value (baseline) -> 0-1 sus share, and its weight.
+    // "--" = never measured (its weight is shared out among the others).
+    private static func breakdown(_ s: Signals, _ b: Baseline, _ e: SusEngine,
+                                  _ llm: Double?, _ final: Double) -> String {
+        let w = e.weights, k = e.sensitivity
+        func f(_ x: Double) -> String { String(format: "%.2f", x) }
+        let hr = s.heartRate.map {
+            "HR  \(Int($0)) bpm (base \(Int(b.heartRate))) -> " + f(e.normalize($0, baseline: b.heartRate, sensitivity: k.heartRate, deviation: .aboveOnly, deadband: k.heartRateDeadband))
+        } ?? "HR  --"
+        let rt = s.responseTime.map {
+            "RT  \(f($0))s (base \(f(b.responseTime))) -> " + f(e.normalize($0, baseline: b.responseTime, sensitivity: k.responseTime, deviation: .aboveOnly))
+        } ?? "RT  -- (round 1: setting baseline)"
+        let sr = s.speechRate.map {
+            "SR  \(f($0)) w/s (base \(f(b.speechRate))) -> " + f(e.normalize($0, baseline: b.speechRate, sensitivity: k.speechRate))
+        } ?? "SR  -- (round 1 or not heard)"
+        let hes = s.hesitation.map { "HES \(Int($0 * 100))% pausing -> " + f(min(max($0, 0), 1)) } ?? "HES --"
+        return """
+            \(hr)  x\(f(w.heartRate))
+            \(rt)  x\(f(w.responseTime))
+            \(sr)  x\(f(w.speechRate))
+            \(hes)  x\(f(w.hesitation))
+            LLM \(llm.map(f) ?? "--")  share \(f(w.structure))
+            = \(f(final))
+            """
+    }
+
     // Dev-only: force this device's role for solo screen testing (no room).
     func forceRole(_ role: PlayerRole) {
         applyTurn(asker: role == .asker ? myName : "_",
@@ -760,9 +826,9 @@ final class GameViewModel {
     // One quick sequence, no prompts: LETS CALIBRATE instruction -> put-finger
     // warning -> MEASURING HEART RATE ("I swear that I'm telling the truth",
     // live BPM). Captures the player's resting HR as the baseline.
-    // ponytail: only the HR baseline is measured now; responseTime/speechRate
-    // baselines stay at their defaults. Bring back spoken calibration prompts
-    // if those two signals score poorly.
+    // ponytail: only the HR baseline is measured here; responseTime/speechRate
+    // baselines come from the player's own round 1+ (Baseline.rolling), so round
+    // 1 isn't judged on pace. Add spoken calibration prompts to judge it too.
     var isCalibrated = false
     // What to do once calibration finishes (continue into the round). nil =
     // stand-alone calibration, fall back to the start screen.
@@ -790,8 +856,11 @@ final class GameViewModel {
             // AVFoundation a beat before grabbing the camera for PPG.
             try? await Task.sleep(for: .seconds(0.5))
             await heart.startLiveCapture()
-            let poll = Task { [weak self] in
-                while let self, self.state == .calibrating {
+            // No [weak self] here: the enclosing Task already holds self
+            // strongly, so weak would only be noise (and the compiler says so).
+            // The loop ends with the sequence — poll.cancel() is right below.
+            let poll = Task {
+                while self.state == .calibrating {
                     self.liveBPM = self.heart.liveBPM().map { Int($0.rounded()) }
                     try? await Task.sleep(for: .seconds(1))
                 }
@@ -910,9 +979,15 @@ final class GameViewModel {
         // pulse means no heart rate. SusEngine shares their weight out among
         // whatever did arrive.
         let heard = !speechResult.text.isEmpty
+        // Pace is judged against THIS player's own earlier answers. With no
+        // earlier answer yet (round 1) there is nothing to compare to, so pace
+        // sits the round out — nil, weight shared among the other signals.
+        let rtBase = Baseline.rolling(history: pastResponseTimes)
+        let srBase = Baseline.rolling(history: pastSpeechRates)
+        let rawSpeechRate = heard ? speechResult.speechRate : nil
         let signals = Signals(heartRate: bpm,
-                              responseTime: responseTime,
-                              speechRate: heard ? speechResult.speechRate : nil,
+                              responseTime: rtBase == nil ? nil : responseTime,
+                              speechRate: srBase == nil ? nil : rawSpeechRate,
                               hesitation: heard ? speechResult.hesitation : nil,
                               answerText: speechResult.text)
 
@@ -926,6 +1001,13 @@ final class GameViewModel {
 
         // Sensors first. This score stands on its own and is what plays on an
         // iPhone without Apple Intelligence.
+        // Score against THIS player's usual pace, then add this round to it.
+        let baseline = Baseline(heartRate: self.baseline.heartRate,
+                                responseTime: rtBase ?? self.baseline.responseTime,
+                                speechRate: srBase ?? self.baseline.speechRate)
+        if responseTime > 0 { pastResponseTimes.append(responseTime) }
+        if let sr = rawSpeechRate, sr > 0 { pastSpeechRates.append(sr) }
+
         let measured = engine.score(signals: signals, baseline: baseline)
 
         // Then, only where the device can: let the LLM read what the answer
@@ -942,6 +1024,9 @@ final class GameViewModel {
                                                             answer: speechResult.text)
         lastResult = result
         hasPlayedARound = true
+        #if DEBUG
+        debugBreakdown = Self.breakdown(signals, baseline, engine, structure?.score, result.score)
+        #endif
 
         // Score is known now, but hold on the .calculating screen a beat so its
         // meter needle can animate to the real score before we reveal .result.
