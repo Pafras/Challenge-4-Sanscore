@@ -856,8 +856,11 @@ final class GameViewModel {
             // AVFoundation a beat before grabbing the camera for PPG.
             try? await Task.sleep(for: .seconds(0.5))
             await heart.startLiveCapture()
-            let poll = Task { [weak self] in
-                while let self, self.state == .calibrating {
+            // No [weak self] here: the enclosing Task already holds self
+            // strongly, so weak would only be noise (and the compiler says so).
+            // The loop ends with the sequence — poll.cancel() is right below.
+            let poll = Task {
+                while self.state == .calibrating {
                     self.liveBPM = self.heart.liveBPM().map { Int($0.rounded()) }
                     try? await Task.sleep(for: .seconds(1))
                 }

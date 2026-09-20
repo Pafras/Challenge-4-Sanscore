@@ -42,19 +42,19 @@ struct SussConfirmDrawer: View {
     @State private var contentHeight: CGFloat = 300
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
                 // Grabber: 64 wide, white 50% fill, white 70% OUTSIDE stroke 4.
                 Capsule().fill(.white.opacity(0.5))
                     .overlay(Capsule().inset(by: -2)
                         .stroke(.white.opacity(0.7), lineWidth: 4))
                     .frame(width: 64, height: 10)
-                    .padding(.top, 18)
-                    .padding(.bottom, 8)
+                    .padding(.top, 6)
+                    .padding(.bottom, 4)
 
                 IdentityTitle(text: title, size: 32, strokeWidth: 5,
                               fill: Color(hex: "2A1AE8"), stroke: Color(hex: "8FE0FF"),
                               tilt: 0)
-                    .padding(.top, 6)
+                    .padding(.top, 2)
 
                 Text(message)
                     .sussFont(.body2)              // design system: Body 2 (18 semibold)
@@ -79,8 +79,11 @@ struct SussConfirmDrawer: View {
                         gradientColors: [Color(hex: "FFC1EB"), Color(hex: "EB0067")]))
                 }
                 .padding(.horizontal, 24)
-                .padding(.top, 4)
         }
+        // Bottom inset so the buttons clear the home indicator (the drawer runs
+        // to the PHYSICAL bottom edge, see ignoresSafeArea below). Paid for by
+        // the tighter spacing above, so the sheet keeps its height.
+        .padding(.bottom, 24)
         .frame(maxWidth: .infinity)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
             contentHeight = $0
