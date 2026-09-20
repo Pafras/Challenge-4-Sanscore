@@ -58,8 +58,11 @@ extension View {
             let base = Glass.regular.tint(tint.opacity(opacity))
             glassEffect(interactive ? base.interactive() : base, in: shape)
         } else {
-            background(.ultraThinMaterial, in: shape)
-                .background(tint.opacity(opacity * 0.6), in: shape)
+            // NOT .ultraThinMaterial: a material takes its colour from whatever
+            // is behind it, which turned the buttons grey over the pink drawer.
+            // The Figma spec is a plain white 50% fill, so use exactly that —
+            // same colour on every iOS version, just without the refraction.
+            background(tint.opacity(opacity), in: shape)
         }
     }
 
