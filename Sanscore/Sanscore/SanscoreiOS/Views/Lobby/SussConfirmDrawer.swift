@@ -88,6 +88,12 @@ struct SussConfirmDrawer: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
             contentHeight = $0
         }
+        // Pin to the top of the sheet. iOS 18 keeps the home-indicator inset
+        // inside the sheet and CENTRES the content in what's left, which pushed
+        // everything up on an iPhone XS; iOS 26 let it run to the edge. Top
+        // alignment puts the content in the same place on both, and any
+        // left-over space lands under the buttons where the indicator is.
+        .frame(maxHeight: .infinity, alignment: .top)
         .presentationDetents([.height(contentHeight)])
         .ignoresSafeArea(edges: .bottom)   // 56 counts to the PHYSICAL edge
         .presentationDragIndicator(.hidden)      // custom grabber above
