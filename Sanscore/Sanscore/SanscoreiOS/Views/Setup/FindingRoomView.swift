@@ -21,6 +21,10 @@ struct FindingRoomView: View {
     // iOS gives us no way to query. So after a while, say what to check.
     @State private var showHint = false
     private let hintDelay: Duration = .seconds(8)
+    // Latched true once a room shows up. MultipeerConnectivity drops and
+    // re-finds peers all the time (lostPeer fires mid-join), so tying the push
+    // straight to "list not empty" popped the code screen while typing.
+    @State private var showRooms = false
 
     var body: some View {
         ZStack {
@@ -86,7 +90,10 @@ struct FindingRoomView: View {
             .padding(.leading, 16)
             .padding(.top, 8)
         }
-        .navigationDestination(isPresented: .constant(!vm.room.foundRooms.isEmpty)) {
+        .onChange(of: vm.room.foundRooms.isEmpty, initial: true) { _, empty in
+            if !empty { showRooms = true }
+        }
+        .navigationDestination(isPresented: $showRooms) {
             JoinRoomView(vm: vm, dismissAll: dismissAll)
         }
     }

@@ -21,6 +21,7 @@ struct JoinRoomView: View {
     @State private var codeCardHeight: CGFloat = 560   // measured -> sheet detent
     @State private var shakes = 0                      // +1 per wrong code -> shake anim
     @State private var showWrongToast = false
+    @State private var toastText = "Wrong Code!"       // or a can't-connect message
 
     // Pass previewShowCode: true to open straight on the code-entry card —
     // used by #Preview (no nearby rooms there, so no room to tap).
@@ -132,7 +133,7 @@ struct JoinRoomView: View {
             // clips its bounds, so it can't float above the drawer).
             .overlay(alignment: .top) {
                 if showWrongToast {
-                    SusToastView(toast: Toast(message: "Wrong Code!", style: .danger),
+                    SusToastView(toast: Toast(message: toastText, style: .danger),
                                  icon: "exclamationmark.triangle.fill")
                         .padding(.top, 52)
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -142,7 +143,9 @@ struct JoinRoomView: View {
                        value: showWrongToast)
         // A failed code: buzz + shake the boxes + clear digits + toast.
         .onChange(of: vm.joinError) { _, err in
-            if err != nil {
+            if let err {
+                // Only a real rejection is a wrong code; a timeout/drop is not.
+                toastText = err.hasPrefix("Wrong") ? "Wrong Code!" : "Can't reach room"
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
                 withAnimation(.easeInOut(duration: 0.45)) { shakes += 1 }
                 resetCode()

@@ -20,6 +20,7 @@ import FoundationModels
 // score AND make the verdict sharper — judging before writing beats asking for
 // a joke straight away. Each @Guide line tells the model what that number
 // means. Keep them 0-1.
+@available(iOS 26.0, *)
 @Generable
 struct AnswerStructure {
     @Guide(description: "0 = answers directly, 1 = totally dodges the question")
