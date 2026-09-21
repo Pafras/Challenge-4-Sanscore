@@ -73,7 +73,7 @@ struct RoomLobbyView: View {
                 // Host CTA = START; player CTA = wait + loading bars.
                 if vm.room.isHost {
                     Button { vm.start() } label: {
-                        IdentityTitle(text: String(localized: "START"), size: 26, strokeWidth: 4, tilt: 0)
+                        IdentityTitle(text: String(localized: "START", bundle: .app), size: 26, strokeWidth: 4, tilt: 0)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(SussButtonStyle(glisten: true, dark: true))  // dark glass + glisten beam
@@ -132,10 +132,11 @@ struct RoomLobbyView: View {
         .sussDrawerDim(showLeaveConfirm)   // design system: drawers dim darker
         .sheet(isPresented: $showLeaveConfirm) {
             SussConfirmDrawer(
-                title: vm.room.isHost ? "CLOSE ROOM?" : "LEAVE ROOM?",
+                title: vm.room.isHost ? String(localized: "CLOSE ROOM?", bundle: .app)
+                                      : String(localized: "LEAVE ROOM?", bundle: .app),
                 message: vm.room.isHost
-                    ? "Leaving closes room for everyone."
-                    : "You'll leave the room and return to start.",
+                    ? String(localized: "Leaving closes room for everyone.", bundle: .app)
+                    : String(localized: "You'll leave the room and return to start.", bundle: .app),
                 onConfirm: {
                     showLeaveConfirm = false
                     vm.leaveRoom()

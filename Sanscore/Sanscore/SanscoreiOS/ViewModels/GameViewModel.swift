@@ -497,7 +497,7 @@ final class GameViewModel {
             if pendingJoin {
                 pendingJoin = false
                 joinToken &+= 1
-                joinError = "Wrong code. Please enter the right code."
+                joinError = String(localized: "Wrong code. Please enter the right code.", bundle: .app)
                 room.disconnectSession()
             }
         case let .roomInfo(title):
@@ -738,7 +738,7 @@ final class GameViewModel {
     private func failJoin() {
         pendingJoin = false
         joinToken &+= 1
-        joinError = "Couldn't reach the room. Try again."
+        joinError = String(localized: "Couldn't reach the room. Try again.", bundle: .app)
         room.disconnectSession()
     }
 
@@ -1042,7 +1042,7 @@ final class GameViewModel {
     // keep waiting instead of timing out. Only reached when a round captured
     // nothing at all.
     private func retakeAnswer() async {
-        retakeNotice = String(localized: "Couldn't hear you, and no pulse either. Hold the phone with a fingertip on the rear camera and answer again.")
+        retakeNotice = String(localized: "Couldn't hear you, and no pulse either. Hold the phone with a fingertip on the rear camera and answer again.", bundle: .app)
         // Re-arms the 30s no-result backstop on the asker + spectators; without
         // this a retake can outlast their timer and dump everyone in the lobby.
         room.send(.calculating)
