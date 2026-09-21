@@ -39,9 +39,9 @@ struct SettingsView: View {
         guard #available(iOS 26.0, *) else { return nil }
         switch StructureAnalyzer.status {
         case .offInSettings:
-            return String(localized: "Turn on Apple Intelligence in Settings — it reads what your answer means, on top of the sensors, and writes sharper verdicts.")
+            return String(localized: "Turn on Apple Intelligence in Settings — it reads what your answer means, on top of the sensors, and writes sharper verdicts.", bundle: .app)
         case .stillDownloading:
-            return String(localized: "Apple Intelligence is still downloading — answers get read for meaning once it finishes.")
+            return String(localized: "Apple Intelligence is still downloading — answers get read for meaning once it finishes.", bundle: .app)
         case .available, .unsupported:
             return nil
         }
@@ -55,19 +55,18 @@ struct SettingsView: View {
             header
 
             // LANGUAGE
-            row(icon: "globe", title: "LANGUAGE") {
+            row(icon: "globe", title: String(localized: "LANGUAGE", bundle: .app)) {
                 LanguageToggle(selection: $language)
-                    // TODO: drive real localization off this value.
             }
 
             // SFX
-            row(icon: "speaker.wave.2.fill", title: "SFX") {
+            row(icon: "speaker.wave.2.fill", title: String(localized: "SFX", bundle: .app)) {
                 SussSlider(value: $sfxVolume)
                     // TODO: route to the SFX audio channel.
             }
 
             // BGM
-            row(icon: "speaker.wave.2.fill", title: "BGM") {
+            row(icon: "speaker.wave.2.fill", title: String(localized: "BGM", bundle: .app)) {
                 SussSlider(value: $bgmVolume)
                     // TODO: route to the BGM audio channel.
             }
@@ -75,7 +74,7 @@ struct SettingsView: View {
             // CLOSE CAPTIONS — custom pink toggle (Figma). Same key
             // ClosedCaptionView reads, so flipping it shows/hides captions live.
             HStack {
-                labelRow(icon: "captions.bubble.fill", title: "CLOSE\nCAPTIONS")
+                labelRow(icon: "captions.bubble.fill", title: String(localized: "CLOSE\nCAPTIONS", bundle: .app))
                 Spacer()
                 SussToggle(isOn: $closedCaptions)
             }
@@ -86,7 +85,7 @@ struct SettingsView: View {
             // a fingertip on the camera afterwards.
             if vm?.appleWatchAvailable == true {
                 HStack {
-                    labelRow(icon: "applewatch", title: "APPLE\nWATCH")
+                    labelRow(icon: "applewatch", title: String(localized: "APPLE\nWATCH", bundle: .app))
                     Spacer()
                     SussToggle(isOn: $useAppleWatch)
                 }

@@ -169,7 +169,7 @@ struct JoinRoomView: View {
 
             // Large Title 31, design-system stroked text (same combo as
             // SussConfirmDrawer) instead of the fixed-size image asset.
-            IdentityTitle(text: String(localized: "ENTER CODE"), size: 31, strokeWidth: 5,
+            IdentityTitle(text: String(localized: "ENTER CODE", bundle: .app), size: 31, strokeWidth: 5,
                           fill: Color(hex: "2A1AE8"), stroke: Color(hex: "8FE0FF"),
                           tilt: 0)
                 .padding(.top, 6)
@@ -310,7 +310,7 @@ struct JoinRoomView: View {
                     } else {
                         // No room selected = #Preview (real flow always has one).
                         // Fake a wrong code so the shake + toast can be tested.
-                        vm.joinError = "Wrong code"
+                        vm.joinError = String(localized: "Wrong code", bundle: .app)
                     }
                 }
             }

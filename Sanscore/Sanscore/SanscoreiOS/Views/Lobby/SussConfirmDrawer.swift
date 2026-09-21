@@ -33,7 +33,7 @@ extension View {
 struct SussConfirmDrawer: View {
     let title: String            // e.g. "CLOSE ROOM?" / "LEAVE ROOM?"
     let message: String
-    var confirmLabel = "EXIT"
+    var confirmLabel = String(localized: "EXIT", bundle: .app)
     var onConfirm: () -> Void
     var onCancel: () -> Void
 
@@ -65,7 +65,7 @@ struct SussConfirmDrawer: View {
                 // Buttons: 72pt tall (40 label + 2×16 style padding).
                 HStack(spacing: 16) {
                     Button(action: onCancel) {
-                        IdentityTitle(text: String(localized: "CANCEL"), size: 18, strokeWidth: 3, tilt: 0)
+                        IdentityTitle(text: String(localized: "CANCEL", bundle: .app), size: 18, strokeWidth: 3, tilt: 0)
                             .frame(maxWidth: .infinity, minHeight: 40)
                     }
                     .buttonStyle(SussButtonStyle(horizontalPadding: 16))

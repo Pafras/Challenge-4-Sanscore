@@ -267,11 +267,13 @@ struct GameFlowView: View {
         .sussDrawerDim(showResultLeaveConfirm)   // design system: drawers dim darker
         .sheet(isPresented: $showResultLeaveConfirm) {
             SussConfirmDrawer(
-                title: vm.room.isHost ? "END GAME?" : "LEAVE GAME?",
+                title: vm.room.isHost ? String(localized: "END GAME?", bundle: .app)
+                                      : String(localized: "LEAVE GAME?", bundle: .app),
                 message: vm.room.isHost
-                    ? "You'll end the game and the room will be closed as well."
-                    : "You won't be able to rejoin and have to join a new room to play.",
-                confirmLabel: vm.room.isHost ? "END" : "LEAVE",
+                    ? String(localized: "You'll end the game and the room will be closed as well.", bundle: .app)
+                    : String(localized: "You won't be able to rejoin and have to join a new room to play.", bundle: .app),
+                confirmLabel: vm.room.isHost ? String(localized: "END", bundle: .app)
+                                             : String(localized: "LEAVE", bundle: .app),
                 onConfirm: {
                     showResultLeaveConfirm = false
                     vm.leaveRoom()
