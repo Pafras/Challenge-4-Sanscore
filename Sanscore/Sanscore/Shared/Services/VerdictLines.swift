@@ -20,27 +20,27 @@ enum VerdictLines {
 
     /// Shown when the mic heard nothing at all — not a verdict, an instruction.
     static var unheard: String {
-        String(localized: "Couldn't hear you — say that again louder.")
+        String(localized: "Couldn't hear you — say that again louder.", bundle: .app)
     }
 
     private static func lines(for band: SusBand) -> [String] {
         switch band {
         case .veryTruth:
-            return [String(localized: "Suspiciously honest. We'll allow it."),
-                    String(localized: "Not a single crack. Boring, but clean."),
-                    String(localized: "The machine believes you. For now.")]
+            return [String(localized: "Suspiciously honest. We'll allow it.", bundle: .app),
+                    String(localized: "Not a single crack. Boring, but clean.", bundle: .app),
+                    String(localized: "The machine believes you. For now.", bundle: .app)]
         case .kindaTruth:
-            return [String(localized: "Mostly solid. One eyebrow raised."),
-                    String(localized: "Nothing to arrest you for. Yet."),
-                    String(localized: "Fine. But you paused, and we noticed.")]
+            return [String(localized: "Mostly solid. One eyebrow raised.", bundle: .app),
+                    String(localized: "Nothing to arrest you for. Yet.", bundle: .app),
+                    String(localized: "Fine. But you paused, and we noticed.", bundle: .app)]
         case .kindaSus:
-            return [String(localized: "That took a suspicious amount of thinking."),
-                    String(localized: "Half a story is still half a story."),
-                    String(localized: "You're sweating a little, aren't you?")]
+            return [String(localized: "That took a suspicious amount of thinking.", bundle: .app),
+                    String(localized: "Half a story is still half a story.", bundle: .app),
+                    String(localized: "You're sweating a little, aren't you?", bundle: .app)]
         case .verySus:
-            return [String(localized: "The needle went all the way. Impressive."),
-                    String(localized: "Even the phone is embarrassed for you."),
-                    String(localized: "Nobody hesitates that much telling the truth.")]
+            return [String(localized: "The needle went all the way. Impressive.", bundle: .app),
+                    String(localized: "Even the phone is embarrassed for you.", bundle: .app),
+                    String(localized: "Nobody hesitates that much telling the truth.", bundle: .app)]
         }
     }
 }

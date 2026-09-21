@@ -41,8 +41,10 @@ struct RoleRevealView: View {
 // Full-screen push-to-talk. Hold to talk, release fires onRelease.
 // enabled = false greys it out and ignores presses (e.g. no question typed yet).
 private struct PushToTalkView: View {
-    let label: String
-    let subtitle: String
+    // LocalizedStringKey, not String: `Text(key)` looks the text up in
+    // Localizable.xcstrings and follows the in-app LANGUAGE toggle.
+    let label: LocalizedStringKey
+    let subtitle: LocalizedStringKey
     let color: Color
     var enabled: Bool = true
     var onPress: (() -> Void)? = nil
