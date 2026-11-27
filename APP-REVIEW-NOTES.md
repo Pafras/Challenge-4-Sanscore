@@ -46,19 +46,22 @@ avatar image, the question text and the round result are sent, and only over
 the local network. Nothing is collected by us — the privacy nutrition labels
 are set to Data Not Collected. Heart rate and voice never leave the phone.
 
-HEALTHKIT
-The app does NOT use HealthKit in this version and never asks for Health
-permission. The HealthKit purpose strings are present only because an Apple
-Watch companion file still links HealthKit.framework; without them the upload
-is rejected with ITMS-90683. The app has no HealthKit entitlement and makes no
-Health queries. The Apple Watch app is not included in this version.
+IPHONE ONLY
+This version is iPhone-only. It does not include an Apple Watch app, does not
+use HealthKit and never asks for Health permission. Heart rate is read only
+from the rear camera as described above.
 
-APPLE INTELLIGENCE IS OPTIONAL
-On iPhones with Apple Intelligence, an on-device Foundation Models session
-writes the one-line verdict text. On every other supported iPhone (the minimum
-is iOS 18) the app picks a line from a built-in list instead. The score itself
-never depends on Apple Intelligence, so the game behaves the same on an older
-review device.
+APPLE INTELLIGENCE IS OPTIONAL (ON-DEVICE AI)
+On iPhones with Apple Intelligence, the app uses Apple's on-device Foundation
+Models framework. A short on-device session reads the transcribed text of the
+answer, rates how it is phrased (evasive, vague, rambling, inconsistent) and
+writes the one-line verdict. That rating is blended into the score with a 25%
+weight; the four measured signals (heart rate, response time, speech rate and
+mid-answer pauses) make up the rest. It runs entirely on the device, so no
+answer text or audio is sent anywhere. On every other supported iPhone (the
+minimum is iOS 18) the score uses the four measured signals only and the
+verdict line is picked from a built-in list, so the game still works on an
+older review device. Scores can differ slightly between the two.
 
 LANGUAGE
 The interface is available in English and Indonesian. Speech recognition is

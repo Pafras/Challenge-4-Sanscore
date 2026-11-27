@@ -111,38 +111,11 @@ final class GameViewModel {
     private let engine: SusEngine
     private var heart: HeartRateSource
     private let speech: SpeechCapturing
-    // nil where the device has no Apple Intelligence — the verdict then comes
-    // from VerdictLines instead. The SCORE never depends on this.
+    // nil where the device has no Apple Intelligence. When present, its structure
+    // score is blended into the sus score (SusWeights.structure) and it writes
+    // the verdict. When nil, the four measured signals stand alone and the
+    // verdict comes from VerdictLines instead.
     private let structure: StructureAnalyzing?
-
-    // --- Apple Watch HR (optional, more accurate than camera PPG) ---
-    // The start screen asks "Do you have an Apple Watch?". If yes and one is
-    // paired with Sanscore installed, HR comes from the wrist instead of the
-    // camera. Both sources exist on device; `heart` points at whichever is
-    // chosen. nil on Simulator (mock is used there).
-    private let watchHeart: WatchHeartRate?
-    private let cameraHeart: HeartRateSource?
-    /// User's choice from the start screen. Defaults off = camera.
-    private(set) var useAppleWatch = false
-
-    #if DEBUG
-    // TEMP(pafras): forces Apple Watch HR on-device for testing before Marleen's
-    // "Do you have an Apple Watch?" screen exists. Set back to false for camera
-    // testing / before others build. Remove once the real screen lands.
-    // v1 ships iPhone-only (watch app un-embedded) — keep false; flip to true
-    // only when locally testing the watch target in v1.1 work.
-    static let debugForceAppleWatch = false
-    #endif
-    /// True when a paired watch has the Sanscore watch app installed. The UI
-    /// reads this to decide whether to OFFER the Apple Watch option.
-    var appleWatchAvailable: Bool { watchHeart?.isAvailable ?? false }
-    /// Marleen's start screen calls this when the user opts in/out. Falls back
-    /// to the camera if they opt in but no usable watch is present.
-    func setUseAppleWatch(_ on: Bool) {
-        useAppleWatch = on
-        guard let w = watchHeart, let c = cameraHeart else { return }
-        heart = (on && w.isAvailable) ? w : c
-    }
 
     // When the response-time clock started (set the moment the asker lets go).
     private var responseClockStart: Date?
@@ -160,36 +133,10 @@ final class GameViewModel {
         self.engine = engine
         #if targetEnvironment(simulator)
         self.heart = heart ?? MockHeartRate()
-        self.watchHeart = nil
-        self.cameraHeart = nil
         self.speech = speech ?? MockSpeech()
         self.structure = structure ?? MockStructure()
         #else
-        // v1 ships iPhone-only: the watch app is not embedded, so nothing can be
-        // installed on a wrist and WatchHeartRate would only ask for HealthKit
-        // permission it never uses. Building it is what triggered that prompt at
-        // launch, so it is not built at all. Restore the two commented lines when
-        // the watch app is embedded again in v1.1 — everything downstream
-        // (setUseAppleWatch, the Settings row, the startup restore) already works.
-        let camera = heart ?? RealHeartRate()
-        // let watch = WatchHeartRate()
-        self.cameraHeart = camera
-        self.watchHeart = nil
-        self.heart = camera
-        // Restore the player's remembered choice from Settings. Falls back to the
-        // camera on its own if the watch went away since last launch. Dormant in
-        // v1 (watchHeart is nil), live again the moment the watch app returns.
-        if UserDefaults.standard.bool(forKey: "settings.useAppleWatch"),
-           let watch = watchHeart, watch.isAvailable {
-            self.heart = watch
-            useAppleWatch = true
-        }
-        #if DEBUG
-        if Self.debugForceAppleWatch, let watch = watchHeart {
-            self.heart = watch
-            useAppleWatch = true
-        }
-        #endif
+        self.heart = heart ?? RealHeartRate()
         self.speech = speech ?? RealSpeechCapture()
         // Real LLM only where Foundation Models exists, the OS is new enough AND
         // Apple Intelligence is actually usable on this device. Anywhere else the
